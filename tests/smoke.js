@@ -68,6 +68,16 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     assert.equal(ps[2].rot, 1);
     assert.equal(await page.evaluate(() => window.magnetGame.state.selected.id), ps[2].id);
 
+    // 4b. the round ↻ button beside the selected piece rotates it too
+    const h = await page.evaluate(() => window.magnetGame.rotateHandle());
+    assert.ok(h, 'rotate button shown for the selected piece');
+    await page.waitForTimeout(400); // let the pop finish before the screenshot
+    await shot('01b-rotate-button');
+    await page.mouse.click(h.x, h.y);
+    ps = await pieces();
+    assert.equal(ps[2].rot, 2);
+    assert.equal(ps.length, 3, 'tapping the button must not spawn or delete pieces');
+
     // 5. palette recolors the selected piece
     await page.click('.swatch[data-color="#e5393b"]');
     ps = await pieces();

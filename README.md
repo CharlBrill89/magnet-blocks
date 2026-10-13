@@ -16,6 +16,7 @@ uses emoji, big touch targets and happy sounds. It has no timers, scores or fail
 | Drag a shape out of the bottom tray | A new block (there's no limit) follows your finger |
 | Drop it near another block | It snaps into place with a *click* and a glow 🧲 |
 | Tap a block | It turns 90° and is selected |
+| Tap the round ↺ button beside the selected block | It turns 90° again |
 | Tap a color | It recolors the selected block and colors new blocks |
 | Drag a block into the tray | It's deleted 🗑️ |
 | Tap a shape in the tray | A block drops into the middle of the play area |
@@ -55,7 +56,8 @@ npm start            # node scripts/serve.js 8000 → http://localhost:8000/
 
 **Deploying:** `.github/workflows/pages.yml` runs the unit tests and publishes the
 site to GitHub Pages on every push to `main`. First set *Settings → Pages → Source* to
-*GitHub Actions*. On Vercel, import the repo as a static site with no build command.
+*GitHub Actions*. The workflow stamps the script URLs in `index.html` with the
+commit hash (`game.js?v=…`), so browsers never mix a cached old script with a new page. On Vercel, import the repo as a static site with no build command.
 
 ## Code layout
 
@@ -89,7 +91,7 @@ SHOTS=out npm run test:e2e   # also saves screenshots to ./out
 ```
 
 The smoke test checks ground snapping, sideways and stacked magnet snapping,
-tap-to-rotate, recoloring, deleting by dragging into the tray, the broom, completing
+tap-to-rotate, the ↺ rotate button, recoloring, deleting by dragging into the tray, the broom, completing
 the rocket challenge in the right colours (including fixing a wrong-coloured piece), and the landscape layout. It fails on any page error.
 
 ## Roadmap
