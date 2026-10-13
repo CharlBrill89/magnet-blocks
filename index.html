@@ -56,6 +56,23 @@
   @media (max-width: 639px) {
     #chips { order: 3; flex-basis: 100%; justify-content: center; }
   }
+  #cardEmoji { background: #fff; border-radius: 16px; padding: 4px 6px; position: relative;
+    box-shadow: 0 3px 0 rgba(0,0,0,.15); }
+  #cardEmoji::after { content: '▾'; position: absolute; right: -2px; bottom: -4px; font-size: 14px; color: #8e4fd0; }
+  #picker { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(59,47,99,.55); padding: 16px; z-index: 10; }
+  #picker.show { display: flex; }
+  #picker .panel { position: relative; background: #fff; border-radius: 28px; padding: 18px;
+    max-width: 560px; width: 100%; box-shadow: 0 6px 0 rgba(0,0,0,.2); }
+  #pickGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
+  .pick { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 10px 4px 8px; border-radius: 20px; background: #efe9ff; font-size: 46px; line-height: 1.1;
+    box-shadow: 0 3px 0 rgba(0,0,0,.12); }
+  .pick span { font-size: 13px; font-weight: 700; color: #3b2f63; }
+  .pick.current { outline: 4px solid #ffd23f; }
+  .pick.done::after { content: '✅'; position: absolute; top: 2px; right: 4px; font-size: 18px; }
+  .pick:active { transform: scale(.95); }
+  #pickClose { position: absolute; top: -18px; right: -10px; width: 48px; height: 48px; font-size: 22px; }
   @keyframes wiggle { 50% { transform: scale(1.1) rotate(-3deg); } }
 </style>
 </head>
@@ -75,7 +92,7 @@
 </div>
 
 <div id="card" role="status">
-  <span class="big" id="cardEmoji"></span>
+  <button class="big" id="cardEmoji" aria-label="Choose what to build"></button>
   <h1 id="cardTitle"></h1>
   <div id="chips"></div>
   <button id="level" class="tool" title="Difficulty"></button>
@@ -83,6 +100,13 @@
 </div>
 
 <!-- ?v= is stamped with the commit on deploy so phones never mix old and new files -->
+<div id="picker" role="dialog" aria-label="Choose what to build">
+  <div class="panel">
+    <div id="pickGrid"></div>
+    <button id="pickClose" class="tool" aria-label="Close">✖️</button>
+  </div>
+</div>
+
 <script src="geometry.js?v=dev"></script>
 <script src="game.js?v=dev"></script>
 </body>

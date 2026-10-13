@@ -21,7 +21,7 @@ uses emoji, big touch targets and happy sounds. It has no timers, scores or fail
 | Drag a block into the tray | It's deleted 🗑️ |
 | Tap a shape in the tray | A block drops into the middle of the play area |
 | 🧹 | Clears everything |
-| 🎨 / 🎯 | Free build / challenges |
+| 🎨 / 🎯 | Free build / challenges. 🎯 opens a grid where you choose what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
 | 🔊 | Sound on/off |
 
 **Challenges 🎯:** a card says what to build, for example "Build a Rocket! 🚀". It shows
@@ -101,7 +101,7 @@ SHOTS=out npm run test:e2e   # also saves screenshots to ./out
 ```
 
 The smoke test checks ground snapping, sideways and stacked magnet snapping,
-tap-to-rotate, the ↺ rotate button, recoloring, deleting by dragging into the tray, the broom, completing
+tap-to-rotate, the ↺ rotate button, choosing a build from the picker, recoloring, deleting by dragging into the tray, the broom, completing
 the rocket challenge in the right colours (including fixing a wrong-coloured piece),
 the outline on ⭐ (pieces aren't pulled into it), and the landscape layout. It fails on any page error.
 

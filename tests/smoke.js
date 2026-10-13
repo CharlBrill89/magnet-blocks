@@ -98,6 +98,11 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
 
     // 8. challenge #1 is the rocket: red nose, 2 blue squares, 2 orange fins
     await page.click('#btnChallenge');
+    await page.waitForSelector('#picker.show');            // 🎯 opens the "what to build?" grid
+    assert.equal(await page.locator('.pick').count(), 10);
+    await shot('02a-picker');
+    await page.click('.pick[data-i="0"]');                 // rocket
+    await page.waitForSelector('#picker', { state: 'hidden' });
     await page.waitForSelector('#card.show');
     assert.match(await page.textContent('#cardTitle'), /Rocket/);
     assert.equal(await page.locator('#chips .chip').count(), 3);
@@ -151,6 +156,21 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.click('#btnClear');
     await page.waitForTimeout(300);
     await shot('05-outline');
+
+    // 8c. tap the card's emoji to choose another build; finished ones get a ✅
+    await dragFromTray('square', 3, 0.6);                  // something on the board
+    await page.click('#cardEmoji');
+    await page.waitForSelector('#picker.show');
+    assert.equal(await page.locator('.pick.done').count(), 1);
+    assert.equal(await page.getAttribute('.pick.done', 'data-i'), '0');   // rocket done
+    await page.click('.pick[data-i="4"]');
+    assert.match(await page.textContent('#cardTitle'), /Horse/);
+    assert.equal((await pieces()).length, 0);               // fresh board
+    assert.equal(await page.evaluate(() => window.magnetGame.slots().length), 6);
+    // ✖ closes without changing the build
+    await page.click('#cardEmoji'); await page.click('#pickClose');
+    await page.waitForSelector('#picker', { state: 'hidden' });
+    assert.match(await page.textContent('#cardTitle'), /Horse/);
 
     // 9. landscape layout still fits: ground is visible and snapping works
     await page.setViewportSize({ width: 900, height: 480 });

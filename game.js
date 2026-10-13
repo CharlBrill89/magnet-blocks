@@ -268,10 +268,36 @@
     $('btnFree').classList.toggle('on', mode === 'free');
     $('btnChallenge').classList.toggle('on', mode === 'challenge');
     $('card').classList.toggle('show', mode === 'challenge');
-    if (mode === 'challenge') { state.won = false; renderCard(); }
+    if (mode === 'challenge') { state.won = false; renderCard(); openPicker(); }
+    else closePicker();
     layout();
     afterChange();
   }
+
+  // ----- choose what to build
+  const doneBuilds = new Set();
+  function openPicker() {
+    $('pickGrid').innerHTML = G.CHALLENGES.map((ch, i) =>
+      `<button class="pick${i === state.challengeIdx ? ' current' : ''}${doneBuilds.has(ch.id) ? ' done' : ''}" ` +
+      `data-i="${i}" aria-label="${ch.name}">${ch.emoji}<span>${ch.name}</span></button>`).join('');
+    for (const b of $('pickGrid').children) b.addEventListener('click', () => startChallenge(Number(b.dataset.i)));
+    $('picker').classList.add('show');
+  }
+  function closePicker() { $('picker').classList.remove('show'); }
+  function startChallenge(i) {
+    audio();
+    closePicker();
+    clearAll(true);
+    state.challengeIdx = i;
+    state.won = false;
+    $('card').classList.remove('won');
+    renderCard();
+    layout();
+    sfx.color();
+  }
+  $('cardEmoji').addEventListener('click', openPicker);
+  $('pickClose').addEventListener('click', closePicker);
+  $('picker').addEventListener('click', (e) => { if (e.target === $('picker')) closePicker(); });
   $('btnFree').addEventListener('click', () => setMode('free'));
   $('btnChallenge').addEventListener('click', () => setMode('challenge'));
   $('btnClear').addEventListener('click', () => clearAll());
@@ -290,14 +316,7 @@
     $('level').textContent = '⭐'.repeat(state.level);
     $('level').setAttribute('aria-label', 'Difficulty ' + state.level + ' of 2');
   }
-  $('next').addEventListener('click', () => {
-    clearAll(true);
-    state.challengeIdx = (state.challengeIdx + 1) % G.CHALLENGES.length;
-    state.won = false;
-    $('card').classList.remove('won');
-    renderCard();
-    layout();
-  });
+  $('next').addEventListener('click', () => startChallenge((state.challengeIdx + 1) % G.CHALLENGES.length));
 
   function clearAll(silent) {
     for (const p of state.pieces) { const c = w2s(p.x, p.y); burst(c.x, c.y, 6, [p.color, '#fff'], 200); }
@@ -342,6 +361,7 @@
     const prog = updateCard();
     if (prog && prog.done && !state.won) {
       state.won = true;
+      doneBuilds.add(G.CHALLENGES[state.challengeIdx].id);
       $('card').classList.add('won');
       sfx.success();
       confetti();
