@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#bde8ff">
+<title>Magnet Blocks</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🧲%3C/text%3E%3C/svg%3E">
+<style>
+  :root { --btn: 52px; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #bde8ff;
+    overscroll-behavior: none; font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; }
+  body { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  #bar { position: fixed; top: 0; left: 0; right: 0; display: flex; flex-wrap: wrap;
+    align-items: center; justify-content: space-between; gap: 6px 8px;
+    padding: calc(env(safe-area-inset-top) + 6px) 8px 6px; pointer-events: none; }
+  #bar > * { pointer-events: auto; }
+  .group { display: flex; gap: 8px; }
+  button { font: inherit; border: 0; cursor: pointer; touch-action: manipulation; }
+  .tool { width: var(--btn); height: var(--btn); border-radius: 16px; font-size: 28px; line-height: 1;
+    background: #fff; box-shadow: 0 3px 0 rgba(0,0,0,.18); transition: transform .08s; padding: 0; }
+  .tool:active { transform: translateY(2px) scale(.96); box-shadow: 0 1px 0 rgba(0,0,0,.18); }
+  .tool.on { background: #ffe27a; outline: 3px solid #fff; }
+  #palette { display: flex; gap: 4px; order: 3; width: 100%; justify-content: center;
+    padding: 4px; background: rgba(255,255,255,.7); border-radius: 22px; }
+  .swatch { width: 42px; height: 42px; border-radius: 50%; border: 3px solid #fff; padding: 0;
+    box-shadow: 0 2px 0 rgba(0,0,0,.2); transition: transform .1s; }
+  .swatch.on { transform: scale(1.22); outline: 3px solid #333; outline-offset: 1px; }
+  @media (min-width: 640px) {
+    #palette { order: 0; width: auto; }
+    .swatch { width: 44px; height: 44px; }
+  }
+
+  #card { position: fixed; left: 8px; right: 8px; display: none; align-items: center; gap: 10px;
+    flex-wrap: wrap; padding: 8px 12px; background: rgba(255,255,255,.92); border-radius: 22px;
+    box-shadow: 0 4px 0 rgba(0,0,0,.15); max-width: 640px; margin: 0 auto; }
+  #card.show { display: flex; }
+  #card .big { font-size: 40px; line-height: 1; }
+  #card h1 { margin: 0; font-size: 19px; color: #3b2f63; }
+  #chips { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; justify-content: flex-end; }
+  .chip { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 14px;
+    background: #efe9ff; font-weight: 700; color: #3b2f63; font-size: 16px; }
+  .chip svg { width: 28px; height: 28px; fill: #8e4fd0; }
+  .chip.done { background: #c9f5d4; }
+  .chip.done svg { fill: #2fb65a; }
+  #next { display: none; width: 64px; height: 56px; font-size: 32px; border-radius: 18px;
+    background: #2fb65a; color: #fff; box-shadow: 0 4px 0 #1f8340; animation: wiggle .8s infinite; }
+  #card.won #next { display: block; }
+  #card.won { background: #fff6c9; }
+  @keyframes wiggle { 50% { transform: scale(1.1) rotate(-3deg); } }
+</style>
+</head>
+<body>
+<canvas id="stage" aria-label="Magnet Blocks play area"></canvas>
+
+<div id="bar">
+  <div class="group">
+    <button id="btnFree" class="tool on" aria-label="Free build" title="Free build">🎨</button>
+    <button id="btnChallenge" class="tool" aria-label="Challenges" title="Challenges">🎯</button>
+  </div>
+  <div id="palette" role="group" aria-label="Colors"></div>
+  <div class="group">
+    <button id="btnClear" class="tool" aria-label="Clear everything" title="Clear">🧹</button>
+    <button id="btnSound" class="tool" aria-label="Sound on/off" title="Sound">🔊</button>
+  </div>
+</div>
+
+<div id="card" role="status">
+  <span class="big" id="cardEmoji"></span>
+  <h1 id="cardTitle"></h1>
+  <div id="chips"></div>
+  <button id="next" aria-label="Next challenge">➡️</button>
+</div>
+
+<script src="geometry.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
