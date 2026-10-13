@@ -122,6 +122,27 @@
     return r;
   }
 
+  function rotatePiece(piece) {
+    piece.rot = (piece.rot + 1) % 4;
+    clampToView(piece);
+    const r = applySnap(piece);
+    piece.pop = performance.now();
+    if (r.contact) sfx.click(); else sfx.rotate();
+    if (r.contact) state.glow = { x: r.contact.x, y: r.contact.y, fade: performance.now() };
+  }
+
+  // Big round ↻ button beside the selected piece (screen coords), or null.
+  function rotateHandle() {
+    const p = state.selected;
+    if (!p || state.drag || state.pieces.indexOf(p) < 0) return null;
+    const b = G.pieceBounds(p), c = w2s(b.maxX, b.maxY), r = 24;
+    return {
+      x: Math.min(view.W - r - 6, Math.max(r + 6, c.x + r * 0.9)),
+      y: Math.min(view.H - view.trayH - r - 6, Math.max(view.topReserve + r, c.y - r * 0.9)),
+      r,
+    };
+  }
+
   // -------------------------------------------------------------------- input
   function pos(e) {
     const r = canvas.getBoundingClientRect();
@@ -135,6 +156,12 @@
     if (state.drag) return;
     audio();
     const p = pos(e);
+    const h = rotateHandle();
+    if (h && Math.hypot(p.x - h.x, p.y - h.y) <= h.r + 8) {
+      rotatePiece(state.selected);
+      afterChange();
+      return;
+    }
     let piece, offX = 0, offY = 0, fromTray = false;
     if (inTray(p.y)) {
       fromTray = true;
@@ -194,12 +221,7 @@
       if (r.contact) sfx.click(); else sfx.drop();
       piece.pop = performance.now();
     } else if (!d.moved && performance.now() - d.t0 < TAP_MS && !d.fromTray) {
-      piece.rot = (piece.rot + 1) % 4; // tap = rotate + select
-      clampToView(piece);
-      const r = applySnap(piece);
-      piece.pop = performance.now();
-      if (r.contact) sfx.click(); else sfx.rotate();
-      if (r.contact) state.glow = { x: r.contact.x, y: r.contact.y, fade: performance.now() };
+      rotatePiece(piece); // tap = rotate + select
     } else {
       sfx.drop();
       if (state.glow) state.glow.fade = performance.now();
@@ -419,6 +441,23 @@
     ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, 7); ctx.fill();
   }
 
+  function drawRotateHandle(now) {
+    const h = rotateHandle(); if (!h) return;
+    const bob = Math.sin(now / 250) * 1.5;
+    ctx.save();
+    ctx.translate(h.x, h.y + bob);
+    ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, h.r, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.strokeStyle = '#8e4fd0'; ctx.fillStyle = '#8e4fd0'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    const r = h.r * 0.5, a0 = -Math.PI * 0.35, a1 = Math.PI * 1.25;
+    ctx.beginPath(); ctx.arc(0, 0, r, a0, a1); ctx.stroke();
+    // arrowhead at the start of the arc, pointing anticlockwise like the turn
+    ctx.translate(Math.cos(a0) * r, Math.sin(a0) * r); ctx.rotate(a0);
+    ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(7, 3); ctx.lineTo(-7, 3); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
   function drawParticles(dt) {
     const ps = state.particles;
     for (let i = ps.length - 1; i >= 0; i--) {
@@ -443,6 +482,7 @@
     drawGlow(now);
     drawTray();
     if (held) drawPiece(held, now);
+    drawRotateHandle(now);
     drawParticles(dt);
     requestAnimationFrame(frame);
   }
@@ -457,7 +497,7 @@
 
   // Small hook for the Playwright smoke test and debugging.
   window.magnetGame = {
-    state, view, w2s, s2w, setMode,
+    state, view, w2s, s2w, setMode, rotateHandle,
     trayPoint(shape) {
       const t = trayGeom();
       return { x: (G.SHAPE_ORDER.indexOf(shape) + 0.5) * t.slotW, y: t.cy };
