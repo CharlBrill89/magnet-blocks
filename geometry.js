@@ -335,37 +335,6 @@
     return pieces;
   }
 
-  /** Same outline in the same place (rotation compared by shape, not by number). */
-  function sameFootprint(a, b, eps) {
-    if (eps === undefined) eps = 0.05;
-    if (a.shape !== b.shape) return false;
-    const pa = worldSnapPoints(a), pb = worldSnapPoints(b);
-    return pa.every((p) => pb.some((q) => Math.hypot(p.x - q.x, p.y - q.y) <= eps));
-  }
-
-  /** A slot is filled by a placed piece with the same outline and colour. */
-  function slotFilled(slot, pieces) {
-    return pieces.some((p) => sameFootprint(p, slot) &&
-      String(p.color).toLowerCase() === String(slot.color).toLowerCase());
-  }
-
-  /**
-   * Easy-mode helper: the nearest empty slot of the dragged piece's shape whose
-   * centre is within `radius`, or null. Any colour/rotation is accepted; the
-   * game then copies the slot's rotation and colour onto the piece.
-   */
-  function nearestSlot(piece, slots, pieces, radius) {
-    if (radius === undefined) radius = 0.8;
-    const rest = pieces.filter((p) => p !== piece && p.id !== piece.id);
-    let best = null, bestD = radius;
-    for (const s of slots) {
-      if (s.shape !== piece.shape || slotFilled(s, rest)) continue;
-      const d = Math.hypot(s.x - piece.x, s.y - piece.y);
-      if (d <= bestD) { bestD = d; best = s; }
-    }
-    return best;
-  }
-
   // ------------------------------------------------------------ connectivity
 
   function touching(a, b) {
@@ -419,7 +388,7 @@
 
   return {
     EPS, SNAP_THRESHOLD, CONTACT_EPS, SHAPES, SHAPE_ORDER, COLORS, COLOR_HEX, CHALLENGES, needFromLayout,
-    targetSlots, sameFootprint, slotFilled, nearestSlot,
+    targetSlots,
     rotate, toWorld, worldPolygon, worldSnapPoints, pieceBounds, polygonArea,
     snapPiece, hitTest, pointInPolygon, touching, components, countShapes, challengeProgress,
   };

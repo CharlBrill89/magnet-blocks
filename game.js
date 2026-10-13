@@ -16,14 +16,14 @@
     pieces: [], nextId: 1, color: G.COLORS[3].hex, selected: null,
     mode: 'free', challengeIdx: 0, won: false,
     drag: null, glow: null, particles: [], muted: false,
-    level: loadLevel(), // 1 ⭐ ghost pieces, 2 ⭐⭐ outline, 3 ⭐⭐⭐ counts only
+    level: loadLevel(), // 1 ⭐ outline of the build, 2 ⭐⭐ counts only
   };
   function loadLevel() {
-    try { const v = Number(localStorage.getItem('magnet-blocks-level')); if (v >= 1 && v <= 3) return v; } catch (e) { /* private mode */ }
+    try { const v = Number(localStorage.getItem('magnet-blocks-difficulty')); if (v === 1 || v === 2) return v; } catch (e) { /* private mode */ }
     return 1;
   }
   function slots() {
-    return state.mode === 'challenge' && state.level < 3 ? G.targetSlots(G.CHALLENGES[state.challengeIdx]) : [];
+    return state.mode === 'challenge' && state.level === 1 ? G.targetSlots(G.CHALLENGES[state.challengeIdx]) : [];
   }
   const view = { W: 0, H: 0, dpr: 1, trayH: 100, groundY: 0, s: 40, topReserve: 100 };
 
@@ -201,17 +201,6 @@
     clampToView(piece);
     if (d.overTray && d.moved) { state.glow = null; return; }
     if (d.fromTray && !d.moved) return;
-    if (state.level === 1) {
-      // Easy: a matching shape jumps into its ghost slot, turned and painted to fit.
-      const slot = G.nearestSlot(piece, slots(), state.pieces);
-      if (slot) {
-        piece.x = slot.x; piece.y = slot.y; piece.rot = slot.rot; piece.color = slot.color;
-        state.glow = { x: slot.x, y: slot.y, fade: null };
-        if (d.contactKey !== slot.id) { sfx.click(); piece.pop = performance.now(); }
-        d.contactKey = slot.id;
-        return;
-      }
-    }
     const r = applySnap(piece);
     if (r.contact) {
       state.glow = { x: r.contact.x, y: r.contact.y, fade: null };
@@ -292,14 +281,14 @@
     if (!state.muted) sfx.pop();
   });
   $('level').addEventListener('click', () => {
-    state.level = state.level % 3 + 1;
-    try { localStorage.setItem('magnet-blocks-level', String(state.level)); } catch (e) { /* ignore */ }
+    state.level = state.level % 2 + 1;
+    try { localStorage.setItem('magnet-blocks-difficulty', String(state.level)); } catch (e) { /* ignore */ }
     sfx.color();
     syncLevel();
   });
   function syncLevel() {
     $('level').textContent = '⭐'.repeat(state.level);
-    $('level').setAttribute('aria-label', 'Difficulty ' + state.level + ' of 3');
+    $('level').setAttribute('aria-label', 'Difficulty ' + state.level + ' of 2');
   }
   $('next').addEventListener('click', () => {
     clearAll(true);
@@ -459,29 +448,15 @@
     });
   }
 
-  // ⭐ faded coloured ghost of each empty slot; ⭐⭐ one plain outline of the build.
-  function drawTarget(now) {
+  // ⭐: one plain grey outline of the build (no colours, no piece lines).
+  function drawTarget() {
     const ss = slots(); if (!ss.length) return;
-    ctx.save();
-    if (state.level === 1) {
-      const pulse = 0.26 + 0.06 * Math.sin(now / 400);
-      for (const sl of ss) {
-        if (G.slotFilled(sl, state.pieces)) continue;
-        const poly = G.worldPolygon(sl).map((v) => w2s(v.x, v.y));
-        ctx.globalAlpha = pulse; pathOf(poly); ctx.fillStyle = sl.color; ctx.fill();
-        ctx.globalAlpha = 0.9; ctx.setLineDash([view.s * 0.12, view.s * 0.1]);
-        ctx.lineWidth = Math.max(2, view.s * 0.05); ctx.strokeStyle = '#fff'; ctx.lineJoin = 'round'; ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    } else {
-      ctx.beginPath();
-      for (const sl of ss) {
-        G.worldPolygon(sl).forEach((v, i) => { const q = w2s(v.x, v.y); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
-        ctx.closePath();
-      }
-      ctx.fillStyle = 'rgba(59,47,99,.2)'; ctx.fill();
+    ctx.beginPath();
+    for (const sl of ss) {
+      G.worldPolygon(sl).forEach((v, i) => { const q = w2s(v.x, v.y); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+      ctx.closePath();
     }
-    ctx.restore();
+    ctx.fillStyle = 'rgba(59,47,99,.2)'; ctx.fill();
   }
 
   function drawGlow(now) {
@@ -531,7 +506,7 @@
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     drawBackground(now);
-    drawTarget(now);
+    drawTarget();
     const d = state.drag, held = d && d.piece;
     for (const p of state.pieces) if (p !== held) drawPiece(p, now);
     drawGlow(now);
