@@ -101,11 +101,17 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.waitForSelector('#card.show');
     assert.match(await page.textContent('#cardTitle'), /Rocket/);
     assert.equal(await page.locator('#chips .chip').count(), 3);
+    // starts on ⭐ (ghost pieces); go to ⭐⭐⭐ (counts only) for this part
+    assert.equal(await page.textContent('#level'), '⭐');
+    assert.ok((await page.evaluate(() => window.magnetGame.slots().length)) === 5);
+    await page.click('#level'); await page.click('#level');
+    assert.equal(await page.textContent('#level'), '⭐⭐⭐');
+    assert.equal(await page.evaluate(() => window.magnetGame.slots().length), 0);
     await shot('02-challenge');
     const color = (hex) => page.click(`.swatch[data-color="${hex}"]`);
     // tap empty sky to deselect, so picking a colour doesn't repaint the last piece
     const pickForNext = async (hex) => { const s = await toScreen(-3.5, 5.5); await page.mouse.click(s.x, s.y); await color(hex); };
-    await page.click('#chips .chip[data-i="1"]');           // chip picks blue
+    await page.click('#chips .chip[data-i="0"]');           // chip picks blue
     assert.equal(await page.evaluate(() => window.magnetGame.state.color), '#2f7bea');
     await dragFromTray('square', 0.07, 0.55);
     const x0 = (await pieces())[0].x;
@@ -120,7 +126,7 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     near(ps[2].x, x0 - 1); near(ps[3].x, x0 + 1);
     near(ps[4].x, x0); near(ps[4].y, 2.5);
     assert.equal(await page.evaluate(() => window.magnetGame.state.won), false);
-    await page.textContent('#chips .chip[data-i="0"]').then((t) => assert.match(t, /0\/1/));
+    await page.textContent('#chips .chip[data-i="1"]').then((t) => assert.match(t, /0\/1/));
     await color('#e5393b');                              // ...recolour it red (still selected)
     assert.equal(await page.evaluate(() => window.magnetGame.state.won), true);
     await page.waitForSelector('#card.won #next');
@@ -130,6 +136,30 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     assert.equal((await pieces()).length, 0);
     assert.equal(await page.evaluate(() => window.magnetGame.state.challengeIdx), 1);
     assert.match(await page.textContent('#cardTitle'), /Tower/);
+
+    // 8b. ⭐ easy: a dragged shape jumps into its ghost slot, turned and painted
+    await page.click('#level');                           // ⭐⭐⭐ -> ⭐
+    assert.equal(await page.textContent('#level'), '⭐');
+    await pickForNext('#2fb65a');                         // deliberately the wrong colour
+    const sl = await page.evaluate(() => window.magnetGame.slots());
+    await shot('05-easy-ghosts');
+    const top = sl.find((q) => q.shape === 'triangle');   // tower's gold top
+    await dragFromTray('triangle', top.x + 0.4, top.y + 0.3);
+    ps = await pieces();
+    near(ps[0].x, top.x); near(ps[0].y, top.y);
+    assert.equal(ps[0].color, top.color);
+    for (const q of sl.filter((q) => q.shape === 'square')) await dragFromTray('square', q.x - 0.3, q.y + 0.2);
+    assert.equal(await page.evaluate(() => window.magnetGame.state.won), true);
+    await page.waitForTimeout(300);
+    await shot('06-easy-won');
+    await page.click('#next', { force: true });
+
+    // 8c. ⭐⭐ medium: an outline, no ghost snapping
+    await page.click('#level');
+    assert.equal(await page.textContent('#level'), '⭐⭐');
+    await page.waitForTimeout(300);
+    await shot('07-medium-outline');
+    assert.equal(await page.evaluate(() => window.magnetGame.slots().length), 7);   // castle
 
     // 9. landscape layout still fits: ground is visible and snapping works
     await page.setViewportSize({ width: 900, height: 480 });
