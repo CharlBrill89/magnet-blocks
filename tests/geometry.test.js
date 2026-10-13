@@ -108,25 +108,48 @@ test('hit testing prefers the topmost piece and honours margin', () => {
   assert.equal(G.hitTest([arch], 0, 0.1, 0), null);
 });
 
-test('challenges: complete once one snapped structure has the counts', () => {
+const hex = (name) => G.COLOR_HEX[name];
+const colored = (shape, color, x, y, id) => ({ id, shape, color: hex(color), x, y, rot: 0 });
+
+test('challenges: complete once one snapped structure has the shapes in the right colours', () => {
   const tower = G.CHALLENGES.find((c) => c.id === 'tower');
-  const stack = [0, 1, 2, 3].map((i) => piece('square', 0, i + 0.5, 0, 's' + i));
-  stack.push(piece('triangle', 0, 4.5, 0, 't'));
+  // 2 purple + 2 teal squares + gold triangle
+  const stack = ['purple', 'purple', 'teal', 'teal'].map((c, i) => colored('square', c, 0, i + 0.5, 's' + i));
+  stack.push(colored('triangle', 'gold', 0, 4.5, 't'));
   assert.equal(G.challengeProgress(stack, tower).done, true);
   // split the stack: no longer one structure
   const split = stack.slice();
-  split[2] = piece('square', 6, 2.5, 0, 'far');
+  split[2] = colored('square', 'teal', 6, 2.5, 'far');
   const prog = G.challengeProgress(split, tower);
   assert.equal(prog.done, false);
   // extras and strays elsewhere don't matter
-  const extra = stack.concat([piece('arch', 8, 0.5, 0, 'stray')]);
+  const extra = stack.concat([colored('arch', 'red', 8, 0.5, 'stray')]);
   assert.equal(G.challengeProgress(extra, tower).done, true);
   assert.equal(G.challengeProgress([], tower).done, false);
+  assert.deepEqual(G.challengeProgress([], tower).have, [0, 0, 0]);
 });
 
-test('every challenge fits in the box', () => {
+test('challenges: wrong colours do not count', () => {
+  const tower = G.CHALLENGES.find((c) => c.id === 'tower');
+  const stack = ['purple', 'purple', 'teal', 'blue'].map((c, i) => colored('square', c, 0, i + 0.5, 's' + i));
+  stack.push(colored('triangle', 'gold', 0, 4.5, 't'));
+  const prog = G.challengeProgress(stack, tower);
+  assert.equal(prog.done, false);
+  assert.deepEqual(prog.have, [2, 1, 1]);
+  stack[3].color = hex('teal'); // recolour fixes it
+  assert.equal(G.challengeProgress(stack, tower).done, true);
+});
+
+test('every challenge fits in the box and uses real colours', () => {
   assert.equal(G.CHALLENGES.length, 10);
   for (const ch of G.CHALLENGES) {
-    for (const [shape, n] of Object.entries(ch.need)) assert.ok(n <= G.SHAPES[shape].count, ch.id + shape);
+    const perShape = {};
+    for (const r of ch.need) {
+      assert.ok(G.SHAPES[r.shape], ch.id + ' ' + r.shape);
+      assert.ok(hex(r.color), ch.id + ' ' + r.color);
+      assert.ok(r.n > 0);
+      perShape[r.shape] = (perShape[r.shape] || 0) + r.n;
+    }
+    for (const [shape, n] of Object.entries(perShape)) assert.ok(n <= G.SHAPES[shape].count, ch.id + ' ' + shape);
   }
 });

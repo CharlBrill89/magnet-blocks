@@ -86,22 +86,32 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.click('#btnClear');
     assert.equal((await pieces()).length, 0);
 
-    // 8. challenge #1 is the rocket (2 squares + 3 triangles), then Next
+    // 8. challenge #1 is the rocket: red nose, 2 blue squares, 2 orange fins
     await page.click('#btnChallenge');
     await page.waitForSelector('#card.show');
     assert.match(await page.textContent('#cardTitle'), /Rocket/);
+    assert.equal(await page.locator('#chips .chip').count(), 3);
     await shot('02-challenge');
+    const color = (hex) => page.click(`.swatch[data-color="${hex}"]`);
+    // tap empty sky to deselect, so picking a colour doesn't repaint the last piece
+    const pickForNext = async (hex) => { const s = await toScreen(-3.5, 5.5); await page.mouse.click(s.x, s.y); await color(hex); };
+    await page.click('#chips .chip[data-i="1"]');           // chip picks blue
+    assert.equal(await page.evaluate(() => window.magnetGame.state.color), '#2f7bea');
     await dragFromTray('square', 0.07, 0.55);
     const x0 = (await pieces())[0].x;
     await dragFromTray('square', x0 + 0.06, 1.6);
-    await dragFromTray('triangle', x0 - 0.08, 2.6);      // nose
+    await pickForNext('#ff7a1a');
     await dragFromTray('triangle', x0 - 1.1, 0.6);       // left fin
-    assert.equal(await page.evaluate(() => window.magnetGame.state.won), false);
     await dragFromTray('triangle', x0 + 1.12, 0.55);     // right fin
+    await pickForNext('#2fb65a');                        // wrong colour nose...
+    await dragFromTray('triangle', x0 - 0.08, 2.6);
     ps = await pieces();
     near(ps[1].x, x0); near(ps[1].y, 1.5);
-    near(ps[2].x, x0); near(ps[2].y, 2.5);
-    near(ps[3].x, x0 - 1); near(ps[4].x, x0 + 1);
+    near(ps[2].x, x0 - 1); near(ps[3].x, x0 + 1);
+    near(ps[4].x, x0); near(ps[4].y, 2.5);
+    assert.equal(await page.evaluate(() => window.magnetGame.state.won), false);
+    await page.textContent('#chips .chip[data-i="0"]').then((t) => assert.match(t, /0\/1/));
+    await color('#e5393b');                              // ...recolour it red (still selected)
     assert.equal(await page.evaluate(() => window.magnetGame.state.won), true);
     await page.waitForSelector('#card.won #next');
     await page.waitForTimeout(400);

@@ -94,19 +94,40 @@
     { name: 'teal', hex: '#17b5b0' },
   ];
 
-  // The 10 builds from the box. Counts never exceed the pieces in the box.
+  // The 10 builds from the box. Each need is a shape in a colour (by name).
+  // Per shape, the totals never exceed the pieces in the box.
   const CHALLENGES = [
-    { id: 'rocket', emoji: '🚀', name: 'Rocket', need: { triangle: 3, square: 2 } },
-    { id: 'tower', emoji: '🗼', name: 'Tower', need: { square: 4, triangle: 1 } },
-    { id: 'castle', emoji: '🏰', name: 'Castle', need: { square: 4, arch: 1, triangle: 2 } },
-    { id: 'robot', emoji: '🤖', name: 'Robot', need: { square: 5, trapezoid: 1 } },
-    { id: 'horse', emoji: '🐴', name: 'Horse', need: { arch: 1, square: 2, quarter: 2, triangle: 1 } },
-    { id: 'dome', emoji: '🏠', name: 'Dome House', need: { quarter: 4, square: 2 } },
-    { id: 'guitar', emoji: '🎸', name: 'Guitar', need: { arch: 1, quarter: 2, square: 2 } },
-    { id: 'boat', emoji: '⛵', name: 'Boat', need: { trapezoid: 1, triangle: 2, square: 1 } },
-    { id: 'bridge', emoji: '🌉', name: 'Bridge', need: { arch: 2, square: 2 } },
-    { id: 'tree', emoji: '🌲', name: 'Tree', need: { triangle: 3, square: 1 } },
+    { id: 'rocket', emoji: '🚀', name: 'Rocket', need: [
+      { shape: 'triangle', color: 'red', n: 1 }, { shape: 'square', color: 'blue', n: 2 },
+      { shape: 'triangle', color: 'orange', n: 2 }] },
+    { id: 'tower', emoji: '🗼', name: 'Tower', need: [
+      { shape: 'square', color: 'purple', n: 2 }, { shape: 'square', color: 'teal', n: 2 },
+      { shape: 'triangle', color: 'gold', n: 1 }] },
+    { id: 'castle', emoji: '🏰', name: 'Castle', need: [
+      { shape: 'square', color: 'gold', n: 4 }, { shape: 'arch', color: 'red', n: 1 },
+      { shape: 'triangle', color: 'purple', n: 2 }] },
+    { id: 'robot', emoji: '🤖', name: 'Robot', need: [
+      { shape: 'square', color: 'teal', n: 4 }, { shape: 'square', color: 'gold', n: 1 },
+      { shape: 'trapezoid', color: 'blue', n: 1 }] },
+    { id: 'horse', emoji: '🐴', name: 'Horse', need: [
+      { shape: 'arch', color: 'orange', n: 1 }, { shape: 'square', color: 'orange', n: 2 },
+      { shape: 'quarter', color: 'orange', n: 2 }, { shape: 'triangle', color: 'red', n: 1 }] },
+    { id: 'dome', emoji: '🏠', name: 'Dome House', need: [
+      { shape: 'quarter', color: 'red', n: 4 }, { shape: 'square', color: 'gold', n: 2 }] },
+    { id: 'guitar', emoji: '🎸', name: 'Guitar', need: [
+      { shape: 'arch', color: 'purple', n: 1 }, { shape: 'quarter', color: 'purple', n: 2 },
+      { shape: 'square', color: 'green', n: 2 }] },
+    { id: 'boat', emoji: '⛵', name: 'Boat', need: [
+      { shape: 'trapezoid', color: 'blue', n: 1 }, { shape: 'triangle', color: 'red', n: 1 },
+      { shape: 'triangle', color: 'gold', n: 1 }, { shape: 'square', color: 'green', n: 1 }] },
+    { id: 'bridge', emoji: '🌉', name: 'Bridge', need: [
+      { shape: 'arch', color: 'green', n: 2 }, { shape: 'square', color: 'teal', n: 2 }] },
+    { id: 'tree', emoji: '🌲', name: 'Tree', need: [
+      { shape: 'triangle', color: 'green', n: 3 }, { shape: 'square', color: 'orange', n: 1 }] },
   ];
+
+  const COLOR_HEX = {};
+  for (const c of COLORS) COLOR_HEX[c.name] = c.hex;
 
   // ---------------------------------------------------------------- transforms
 
@@ -300,25 +321,25 @@
 
   /**
    * Progress towards a challenge: the best snapped structure on the board.
-   * Returns { have, need, done } where `have` is that structure's counts.
+   * Pieces only count when both shape and colour match a need.
+   * Returns { have, done }: have[i] is how many of challenge.need[i] that
+   * structure contains (capped at what's needed).
    */
   function challengeProgress(pieces, challenge) {
-    let best = {}, bestScore = -1, done = false;
+    const zero = challenge.need.map(() => 0);
+    let best = zero, bestScore = -1, done = false;
     for (const comp of components(pieces)) {
-      const have = countShapes(comp);
-      let score = 0, ok = true;
-      for (const k of Object.keys(challenge.need)) {
-        score += Math.min(have[k] || 0, challenge.need[k]);
-        if ((have[k] || 0) < challenge.need[k]) ok = false;
-      }
+      const have = challenge.need.map((r) => Math.min(r.n, comp.filter((p) =>
+        p.shape === r.shape && String(p.color).toLowerCase() === COLOR_HEX[r.color]).length));
+      const score = have.reduce((a, b) => a + b, 0);
       if (score > bestScore) { bestScore = score; best = have; }
-      if (ok) { done = true; best = have; break; }
+      if (have.every((h, i) => h >= challenge.need[i].n)) { done = true; best = have; break; }
     }
-    return { have: best, need: challenge.need, done };
+    return { have: best, done };
   }
 
   return {
-    EPS, SNAP_THRESHOLD, CONTACT_EPS, SHAPES, SHAPE_ORDER, COLORS, CHALLENGES,
+    EPS, SNAP_THRESHOLD, CONTACT_EPS, SHAPES, SHAPE_ORDER, COLORS, COLOR_HEX, CHALLENGES,
     rotate, toWorld, worldPolygon, worldSnapPoints, pieceBounds, polygonArea,
     snapPiece, hitTest, pointInPolygon, touching, components, countShapes, challengeProgress,
   };

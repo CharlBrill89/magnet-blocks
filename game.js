@@ -226,6 +226,7 @@
     if (state.selected) { state.selected.color = hex; state.selected.pop = performance.now(); }
     sfx.color();
     syncPalette();
+    afterChange();
   }
   function syncPalette() {
     for (const b of palette.children) b.classList.toggle('on', b.dataset.color === state.color);
@@ -265,19 +266,24 @@
     afterChange();
   }
 
-  function shapeIcon(key) {
+  function shapeIcon(key, fill) {
     const sh = G.SHAPES[key];
     const pts = sh.poly.map((p) => `${(p[0] + sh.width / 2).toFixed(3)},${(sh.height / 2 - p[1]).toFixed(3)}`).join(' ');
     const m = Math.max(sh.width, sh.height);
-    return `<svg viewBox="${-(m - sh.width) / 2 - 0.05} ${-(m - sh.height) / 2 - 0.05} ${m + 0.1} ${m + 0.1}"><polygon points="${pts}"/></svg>`;
+    return `<svg viewBox="${-(m - sh.width) / 2 - 0.05} ${-(m - sh.height) / 2 - 0.05} ${m + 0.1} ${m + 0.1}"><polygon points="${pts}" fill="${fill}" stroke="${shade(fill, -0.38)}" stroke-width="0.08" stroke-linejoin="round"/></svg>`;
   }
 
   function renderCard() {
     const ch = G.CHALLENGES[state.challengeIdx];
     $('cardEmoji').textContent = ch.emoji;
     $('cardTitle').textContent = `Build a ${ch.name}!`;
-    $('chips').innerHTML = Object.keys(ch.need).map((k) =>
-      `<span class="chip" data-shape="${k}">${shapeIcon(k)}<span class="n"></span></span>`).join('');
+    $('chips').innerHTML = ch.need.map((r, i) =>
+      `<button class="chip" data-i="${i}" aria-label="${r.n} ${r.color} ${r.shape}">` +
+      `${shapeIcon(r.shape, G.COLOR_HEX[r.color])}<span class="n"></span></button>`).join('');
+    // Tapping a chip picks its colour, so little ones needn't hunt in the palette.
+    for (const chip of $('chips').children) {
+      chip.addEventListener('click', () => setColor(G.COLOR_HEX[ch.need[chip.dataset.i].color]));
+    }
     updateCard();
   }
   function updateCard() {
@@ -285,9 +291,9 @@
     const ch = G.CHALLENGES[state.challengeIdx];
     const prog = G.challengeProgress(state.pieces, ch);
     for (const chip of $('chips').children) {
-      const k = chip.dataset.shape, have = Math.min(prog.have[k] || 0, ch.need[k]);
-      chip.querySelector('.n').textContent = `${have}/${ch.need[k]}`;
-      chip.classList.toggle('done', have >= ch.need[k]);
+      const i = Number(chip.dataset.i), need = ch.need[i].n, have = prog.have[i];
+      chip.querySelector('.n').textContent = have >= need ? '✅' : `${have}/${need}`;
+      chip.classList.toggle('done', have >= need);
     }
     return prog;
   }
