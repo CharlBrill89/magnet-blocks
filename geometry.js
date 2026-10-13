@@ -94,37 +94,66 @@
     { name: 'teal', hex: '#17b5b0' },
   ];
 
-  // The 10 builds from the box. Each need is a shape in a colour (by name).
-  // Per shape, the totals never exceed the pieces in the box.
-  const CHALLENGES = [
-    { id: 'rocket', emoji: '🚀', name: 'Rocket', need: [
-      { shape: 'triangle', color: 'red', n: 1 }, { shape: 'square', color: 'blue', n: 2 },
-      { shape: 'triangle', color: 'orange', n: 2 }] },
-    { id: 'tower', emoji: '🗼', name: 'Tower', need: [
-      { shape: 'square', color: 'purple', n: 2 }, { shape: 'square', color: 'teal', n: 2 },
-      { shape: 'triangle', color: 'gold', n: 1 }] },
-    { id: 'castle', emoji: '🏰', name: 'Castle', need: [
-      { shape: 'square', color: 'gold', n: 4 }, { shape: 'arch', color: 'red', n: 1 },
-      { shape: 'triangle', color: 'purple', n: 2 }] },
-    { id: 'robot', emoji: '🤖', name: 'Robot', need: [
-      { shape: 'square', color: 'teal', n: 4 }, { shape: 'square', color: 'gold', n: 1 },
-      { shape: 'trapezoid', color: 'blue', n: 1 }] },
-    { id: 'horse', emoji: '🐴', name: 'Horse', need: [
-      { shape: 'arch', color: 'orange', n: 1 }, { shape: 'square', color: 'orange', n: 2 },
-      { shape: 'quarter', color: 'orange', n: 2 }, { shape: 'triangle', color: 'red', n: 1 }] },
-    { id: 'dome', emoji: '🏠', name: 'Dome House', need: [
-      { shape: 'quarter', color: 'red', n: 4 }, { shape: 'square', color: 'gold', n: 2 }] },
-    { id: 'guitar', emoji: '🎸', name: 'Guitar', need: [
-      { shape: 'arch', color: 'purple', n: 1 }, { shape: 'quarter', color: 'purple', n: 2 },
-      { shape: 'square', color: 'green', n: 2 }] },
-    { id: 'boat', emoji: '⛵', name: 'Boat', need: [
-      { shape: 'trapezoid', color: 'blue', n: 1 }, { shape: 'triangle', color: 'red', n: 1 },
-      { shape: 'triangle', color: 'gold', n: 1 }, { shape: 'square', color: 'green', n: 1 }] },
-    { id: 'bridge', emoji: '🌉', name: 'Bridge', need: [
-      { shape: 'arch', color: 'green', n: 2 }, { shape: 'square', color: 'teal', n: 2 }] },
-    { id: 'tree', emoji: '🌲', name: 'Tree', need: [
-      { shape: 'triangle', color: 'green', n: 3 }, { shape: 'square', color: 'orange', n: 1 }] },
+  // The 10 builds from the box, each drawn as a target layout:
+  // [shape, colour, x, y, rot] with (x, y) the piece centre, ground at y = 0.
+  // The required counts (`need`) are derived from the layout, and per shape
+  // they never exceed the pieces in the box.
+  const BUILDS = [
+    { id: 'rocket', emoji: '🚀', name: 'Rocket', layout: [
+      ['square', 'blue', 0, 0.5, 0], ['square', 'blue', 0, 1.5, 0], ['triangle', 'red', 0, 2.5, 0],
+      ['triangle', 'orange', -1, 0.5, 0], ['triangle', 'orange', 1, 0.5, 0]] },
+    { id: 'tower', emoji: '🗼', name: 'Tower', layout: [
+      ['square', 'purple', 0, 0.5, 0], ['square', 'purple', 0, 1.5, 0], ['square', 'teal', 0, 2.5, 0],
+      ['square', 'teal', 0, 3.5, 0], ['triangle', 'gold', 0, 4.5, 0]] },
+    { id: 'castle', emoji: '🏰', name: 'Castle', layout: [
+      ['arch', 'red', 0, 0.5, 0],
+      ['square', 'gold', -1.5, 0.5, 0], ['square', 'gold', -1.5, 1.5, 0],
+      ['square', 'gold', 1.5, 0.5, 0], ['square', 'gold', 1.5, 1.5, 0],
+      ['triangle', 'purple', -1.5, 2.5, 0], ['triangle', 'purple', 1.5, 2.5, 0]] },
+    { id: 'robot', emoji: '🤖', name: 'Robot', layout: [
+      ['square', 'teal', -0.5, 0.5, 0], ['square', 'teal', 0.5, 0.5, 0],     // legs
+      ['trapezoid', 'blue', 0, 1.5, 2],                                     // body
+      ['square', 'teal', -1.5, 1.5, 0], ['square', 'teal', 1.5, 1.5, 0],     // arms
+      ['square', 'gold', 0, 2.5, 0]] },                                     // head
+    { id: 'horse', emoji: '🐴', name: 'Horse', layout: [
+      ['arch', 'orange', 0, 0.5, 0],                                        // body + legs
+      ['square', 'orange', 0.5, 1.5, 0], ['square', 'orange', 0.5, 2.5, 0], // neck + head
+      ['quarter', 'orange', 1.5, 2.5, 3],                                   // muzzle
+      ['quarter', 'orange', -1.5, 1.5, 1],                                  // tail
+      ['triangle', 'red', 0.5, 3.5, 0]] },                                  // ear
+    { id: 'dome', emoji: '🏠', name: 'Dome House', layout: [
+      ['square', 'gold', -0.5, 0.5, 0], ['square', 'gold', 0.5, 0.5, 0],
+      ['quarter', 'red', -0.5, 1.5, 1], ['quarter', 'red', 0.5, 1.5, 0],    // dome
+      ['quarter', 'red', -1.5, 0.5, 1], ['quarter', 'red', 1.5, 0.5, 0]] }, // rounded sides
+    { id: 'guitar', emoji: '🎸', name: 'Guitar', layout: [
+      ['quarter', 'purple', -0.5, 0.5, 2], ['quarter', 'purple', 0.5, 0.5, 3], // round bottom
+      ['arch', 'purple', 0, 1.5, 0],                                        // body + sound hole
+      ['square', 'green', 0, 2.5, 0], ['square', 'green', 0, 3.5, 0]] },    // neck
+    { id: 'boat', emoji: '⛵', name: 'Boat', layout: [
+      ['trapezoid', 'blue', 0, 0.5, 2],                                     // hull
+      ['square', 'green', -0.5, 1.5, 0],                                    // mast
+      ['triangle', 'gold', 0.5, 1.5, 0],                                    // sail
+      ['triangle', 'red', -0.5, 2.5, 0]] },                                 // flag
+    { id: 'bridge', emoji: '🌉', name: 'Bridge', layout: [
+      ['arch', 'green', -1, 0.5, 0], ['arch', 'green', 1, 0.5, 0],
+      ['square', 'teal', -1.5, 1.5, 0], ['square', 'teal', 1.5, 1.5, 0]] },
+    { id: 'tree', emoji: '🌲', name: 'Tree', layout: [
+      ['square', 'orange', 0, 0.5, 0],                                      // trunk
+      ['triangle', 'green', -0.5, 1.5, 0], ['triangle', 'green', 0.5, 1.5, 0],
+      ['triangle', 'green', 0, 2.5, 0]] },
   ];
+
+  /** Derive the per-(shape, colour) counts from a layout, in first-seen order. */
+  function needFromLayout(layout) {
+    const need = [];
+    for (const [shape, color] of layout) {
+      const r = need.find((q) => q.shape === shape && q.color === color);
+      if (r) r.n++; else need.push({ shape, color, n: 1 });
+    }
+    return need;
+  }
+
+  const CHALLENGES = BUILDS.map((b) => Object.assign({}, b, { need: needFromLayout(b.layout) }));
 
   const COLOR_HEX = {};
   for (const c of COLORS) COLOR_HEX[c.name] = c.hex;
@@ -287,6 +316,56 @@
     return null;
   }
 
+  // ---------------------------------------------------------- target layouts
+
+  /**
+   * The challenge's target pieces (slots) as full pieces, centred on x = 0.
+   * Colours are hex so slots compare directly with placed pieces.
+   */
+  function targetSlots(challenge) {
+    const pieces = challenge.layout.map(([shape, color, x, y, rot], i) =>
+      ({ id: 'slot' + i, shape, color: COLOR_HEX[color], x, y, rot }));
+    let minX = Infinity, maxX = -Infinity;
+    for (const p of pieces) {
+      const b = pieceBounds(p);
+      minX = Math.min(minX, b.minX); maxX = Math.max(maxX, b.maxX);
+    }
+    const shift = -(minX + maxX) / 2;
+    for (const p of pieces) p.x += shift;
+    return pieces;
+  }
+
+  /** Same outline in the same place (rotation compared by shape, not by number). */
+  function sameFootprint(a, b, eps) {
+    if (eps === undefined) eps = 0.05;
+    if (a.shape !== b.shape) return false;
+    const pa = worldSnapPoints(a), pb = worldSnapPoints(b);
+    return pa.every((p) => pb.some((q) => Math.hypot(p.x - q.x, p.y - q.y) <= eps));
+  }
+
+  /** A slot is filled by a placed piece with the same outline and colour. */
+  function slotFilled(slot, pieces) {
+    return pieces.some((p) => sameFootprint(p, slot) &&
+      String(p.color).toLowerCase() === String(slot.color).toLowerCase());
+  }
+
+  /**
+   * Easy-mode helper: the nearest empty slot of the dragged piece's shape whose
+   * centre is within `radius`, or null. Any colour/rotation is accepted; the
+   * game then copies the slot's rotation and colour onto the piece.
+   */
+  function nearestSlot(piece, slots, pieces, radius) {
+    if (radius === undefined) radius = 0.8;
+    const rest = pieces.filter((p) => p !== piece && p.id !== piece.id);
+    let best = null, bestD = radius;
+    for (const s of slots) {
+      if (s.shape !== piece.shape || slotFilled(s, rest)) continue;
+      const d = Math.hypot(s.x - piece.x, s.y - piece.y);
+      if (d <= bestD) { bestD = d; best = s; }
+    }
+    return best;
+  }
+
   // ------------------------------------------------------------ connectivity
 
   function touching(a, b) {
@@ -339,7 +418,8 @@
   }
 
   return {
-    EPS, SNAP_THRESHOLD, CONTACT_EPS, SHAPES, SHAPE_ORDER, COLORS, COLOR_HEX, CHALLENGES,
+    EPS, SNAP_THRESHOLD, CONTACT_EPS, SHAPES, SHAPE_ORDER, COLORS, COLOR_HEX, CHALLENGES, needFromLayout,
+    targetSlots, sameFootprint, slotFilled, nearestSlot,
     rotate, toWorld, worldPolygon, worldSnapPoints, pieceBounds, polygonArea,
     snapPiece, hitTest, pointInPolygon, touching, components, countShapes, challengeProgress,
   };

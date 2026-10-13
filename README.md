@@ -25,13 +25,24 @@ uses emoji, big touch targets and happy sounds. It has no timers, scores or fail
 | 🔊 | Sound on/off |
 
 **Challenges 🎯:** a card says what to build, for example "Build a Rocket! 🚀". It shows
-each piece you need as a coloured shape with a count, such as 1 red triangle, 2 blue
-squares and 2 orange triangles. Tapping a shape on the card picks its colour. When your blocks form **one connected,
-snapped structure** with at least those pieces **in those colours**, there's confetti
-and a little tune, and a ➡️ button moves on. Wrong-coloured blocks don't count, but
-you can recolour one by tapping it and then a colour. Blocks lying elsewhere on the board
-don't count against you. The 10 builds are rocket, tower, castle, robot, horse, dome
-house, guitar, boat, bridge and tree. No build needs more of a shape than the real box contains.
+each piece you need as a coloured shape with a count, such as 2 blue squares, 1 red
+triangle and 2 orange triangles. Tapping a shape on the card picks its colour. The ⭐ button
+on the card sets the difficulty, and the choice is remembered:
+
+| Level | Help on screen |
+| --- | --- |
+| ⭐ | Faded, coloured **ghost pieces** show where each block goes. Drop a matching shape near its ghost and it jumps in, turned and painted to fit. |
+| ⭐⭐ | A plain grey **outline** of the build, without colours or piece lines. |
+| ⭐⭐⭐ | Only the card's counts. |
+
+When your blocks form **one connected, snapped structure** with at least those pieces
+**in those colours**, there's confetti and a little tune, and a ➡️ button moves on.
+Blocks lying elsewhere on the board don't count against you.
+
+![The 10 builds](docs/builds.png)
+
+Each build is a target layout in `geometry.js`, and its piece counts are worked out
+from that layout. No build needs more of a shape than the real box contains.
 
 ## The block set
 
@@ -92,11 +103,12 @@ SHOTS=out npm run test:e2e   # also saves screenshots to ./out
 
 The smoke test checks ground snapping, sideways and stacked magnet snapping,
 tap-to-rotate, the ↺ rotate button, recoloring, deleting by dragging into the tray, the broom, completing
-the rocket challenge in the right colours (including fixing a wrong-coloured piece), and the landscape layout. It fails on any page error.
+the rocket challenge in the right colours (including fixing a wrong-coloured piece),
+ghost-slot snapping on ⭐ and the outline on ⭐⭐, and the landscape layout. It fails on any page error.
 
 ## Roadmap
 
 - **Group drag:** drag a whole snapped stack at once.
-- **"Copy this picture" mode:** show a silhouette of a build to fill in.
+- **3D-looking blocks:** give the pieces thickness and lighting, while building stays in the flat plane.
 - **Save and share builds:** for example as a URL hash or a picture.
 - **Gentle physics:** unsupported blocks wobble or slide down softly, never in a frustrating way.

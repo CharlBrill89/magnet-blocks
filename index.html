@@ -50,6 +50,7 @@
   #next { display: none; width: 64px; height: 56px; font-size: 32px; border-radius: 18px;
     background: #2fb65a; color: #fff; box-shadow: 0 4px 0 #1f8340; animation: wiggle .8s infinite; }
   #card.won #next { display: block; }
+  #level { width: auto; min-width: 52px; padding: 0 8px; font-size: 18px; letter-spacing: -2px; background: #fff6c9; }
   #card.won { background: #fff6c9; }
   #card h1 { flex: 1; }
   @media (max-width: 639px) {
@@ -77,6 +78,7 @@
   <span class="big" id="cardEmoji"></span>
   <h1 id="cardTitle"></h1>
   <div id="chips"></div>
+  <button id="level" class="tool" title="Difficulty"></button>
   <button id="next" aria-label="Next challenge">➡️</button>
 </div>
 
