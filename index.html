@@ -43,13 +43,18 @@
   #chips { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; justify-content: flex-end; }
   .chip { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 14px;
     background: #efe9ff; font-weight: 700; color: #3b2f63; font-size: 16px; }
-  .chip svg { width: 28px; height: 28px; fill: #8e4fd0; }
+  .chip { font: inherit; font-weight: 700; min-height: 44px; cursor: pointer; }
+  .chip svg { width: 30px; height: 30px; }
+  .chip .n { min-width: 2.2em; text-align: center; }
   .chip.done { background: #c9f5d4; }
-  .chip.done svg { fill: #2fb65a; }
   #next { display: none; width: 64px; height: 56px; font-size: 32px; border-radius: 18px;
     background: #2fb65a; color: #fff; box-shadow: 0 4px 0 #1f8340; animation: wiggle .8s infinite; }
   #card.won #next { display: block; }
   #card.won { background: #fff6c9; }
+  #card h1 { flex: 1; }
+  @media (max-width: 639px) {
+    #chips { order: 3; flex-basis: 100%; justify-content: center; }
+  }
   @keyframes wiggle { 50% { transform: scale(1.1) rotate(-3deg); } }
 </style>
 </head>

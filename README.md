@@ -23,12 +23,14 @@ uses emoji, big touch targets and happy sounds. It has no timers, scores or fail
 | 🎨 / 🎯 | Free build / challenges |
 | 🔊 | Sound on/off |
 
-**Challenges 🎯:** a card says what to build, for example "Build a Rocket! 🚀", and shows
-how many of each shape you need. When your blocks form **one connected, snapped
-structure** that has at least those pieces, there's confetti and a little tune,
-and a ➡️ button moves on. Blocks lying elsewhere on the board don't count against
-you. The 10 builds are rocket, tower, castle, robot, horse, dome house, guitar, boat,
-bridge and tree. No build needs more pieces than the real box contains.
+**Challenges 🎯:** a card says what to build, for example "Build a Rocket! 🚀". It shows
+each piece you need as a coloured shape with a count, such as 1 red triangle, 2 blue
+squares and 2 orange triangles. Tapping a shape on the card picks its colour. When your blocks form **one connected,
+snapped structure** with at least those pieces **in those colours**, there's confetti
+and a little tune, and a ➡️ button moves on. Wrong-coloured blocks don't count, but
+you can recolour one by tapping it and then a colour. Blocks lying elsewhere on the board
+don't count against you. The 10 builds are rocket, tower, castle, robot, horse, dome
+house, guitar, boat, bridge and tree. No build needs more of a shape than the real box contains.
 
 ## The block set
 
@@ -88,7 +90,7 @@ SHOTS=out npm run test:e2e   # also saves screenshots to ./out
 
 The smoke test checks ground snapping, sideways and stacked magnet snapping,
 tap-to-rotate, recoloring, deleting by dragging into the tray, the broom, completing
-the rocket challenge, and the landscape layout. It fails on any page error.
+the rocket challenge in the right colours (including fixing a wrong-coloured piece), and the landscape layout. It fails on any page error.
 
 ## Roadmap
 
