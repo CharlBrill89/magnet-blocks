@@ -175,22 +175,3 @@ test('needs are derived from the layout', () => {
   assert.deepEqual(G.needFromLayout([['square', 'red'], ['triangle', 'red'], ['square', 'red']]),
     [{ shape: 'square', color: 'red', n: 2 }, { shape: 'triangle', color: 'red', n: 1 }]);
 });
-
-test('slots: filled by same outline + colour; easy snap finds the nearest empty slot', () => {
-  const ch = G.CHALLENGES.find((c) => c.id === 'rocket');
-  const slots = G.targetSlots(ch);
-  const sq = slots.find((s) => s.shape === 'square');
-  // a square turned 90° has the same outline, so it still fills the slot
-  const placed = { ...sq, id: 'p', rot: 1 };
-  assert.equal(G.slotFilled(sq, [placed]), true);
-  assert.equal(G.slotFilled(sq, [{ ...placed, color: hex('red') }]), false);
-  assert.equal(G.sameFootprint({ ...slots[0], shape: 'triangle', rot: 0 }, { ...slots[0], shape: 'triangle', rot: 2 }), false);
-  // dragging a square near the bottom slot picks it; once filled, the other one
-  const drag = { id: 'd', shape: 'square', color: hex('green'), x: sq.x + 0.3, y: sq.y + 0.2, rot: 0 };
-  const first = G.nearestSlot(drag, slots, [drag]);
-  assert.equal(first.id, sq.id);
-  const second = G.nearestSlot({ ...drag, y: drag.y + 0.5 }, slots, [drag, placed]);
-  assert.ok(second && second.id !== sq.id && second.shape === 'square');
-  assert.equal(G.nearestSlot({ ...drag, x: 4 }, slots, [drag]), null);
-  assert.equal(G.nearestSlot({ ...drag, shape: 'arch' }, slots, [drag]), null);
-});

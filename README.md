@@ -31,9 +31,8 @@ on the card sets the difficulty, and the choice is remembered:
 
 | Level | Help on screen |
 | --- | --- |
-| ⭐ | Faded, coloured **ghost pieces** show where each block goes. Drop a matching shape near its ghost and it jumps in, turned and painted to fit. |
-| ⭐⭐ | A plain grey **outline** of the build, without colours or piece lines. |
-| ⭐⭐⭐ | Only the card's counts. |
+| ⭐ | A plain grey **outline** of the build, without colours or piece lines. Pieces don't jump into it, so you still have to work out which pieces fit where. |
+| ⭐⭐ | Only the card's counts. |
 
 When your blocks form **one connected, snapped structure** with at least those pieces
 **in those colours**, there's confetti and a little tune, and a ➡️ button moves on.
@@ -104,7 +103,7 @@ SHOTS=out npm run test:e2e   # also saves screenshots to ./out
 The smoke test checks ground snapping, sideways and stacked magnet snapping,
 tap-to-rotate, the ↺ rotate button, recoloring, deleting by dragging into the tray, the broom, completing
 the rocket challenge in the right colours (including fixing a wrong-coloured piece),
-ghost-slot snapping on ⭐ and the outline on ⭐⭐, and the landscape layout. It fails on any page error.
+the outline on ⭐ (pieces aren't pulled into it), and the landscape layout. It fails on any page error.
 
 ## Roadmap
 
