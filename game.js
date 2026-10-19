@@ -334,12 +334,21 @@
   $('welcomePacks').textContent = G.PACKS.map((p) => `${p.emoji} ${p.name}`).join(' · ');
   function showWelcome() { closePicker(); $('welcome').classList.add('show'); }
   function startFrom(mode) {
+    modeChosen = true;
     $('welcome').classList.remove('show');
     save('magnet-blocks-welcomed', true);
     setMode(mode);
   }
   $('welcomeChallenge').addEventListener('click', () => startFrom('challenge'));
   $('welcomeFree').addEventListener('click', () => startFrom('free'));
+  // ✖️ or a tap outside just closes it. On the first visit that leaves the blank board in free build.
+  let modeChosen = false;
+  function closeWelcome() {
+    if (modeChosen) { $('welcome').classList.remove('show'); save('magnet-blocks-welcomed', true); }
+    else startFrom('free');
+  }
+  $('welcomeClose').addEventListener('click', closeWelcome);
+  $('welcome').addEventListener('click', (e) => { if (e.target === $('welcome')) closeWelcome(); });
   $('btnHelp').addEventListener('click', showWelcome);
   $('btnSound').addEventListener('click', () => {
     state.muted = !state.muted;
@@ -649,7 +658,7 @@
   syncScore();
   layout();
   // First visit: a blank board and the welcome. After that: straight into challenges.
-  if (load('magnet-blocks-welcomed', false)) setMode('challenge'); else showWelcome();
+  if (load('magnet-blocks-welcomed', false)) { modeChosen = true; setMode('challenge'); } else showWelcome();
   requestAnimationFrame(frame);
 
   // Small hook for the Playwright smoke test and debugging.

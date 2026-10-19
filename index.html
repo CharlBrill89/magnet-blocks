@@ -74,7 +74,7 @@
   .pick.current { outline: 4px solid #ffd23f; }
   .pick.done::after { content: '✅'; position: absolute; top: 2px; right: 4px; font-size: 18px; }
   .pick:active { transform: scale(.95); }
-  #pickClose { position: absolute; top: -18px; right: -10px; width: 48px; height: 48px; font-size: 22px; }
+  #pickClose, #welcomeClose { position: absolute; top: -18px; right: -10px; width: 48px; height: 48px; font-size: 22px; }
   #score { display: flex; align-items: center; gap: 4px; height: var(--btn); padding: 0 12px 0 8px;
     border-radius: 16px; background: #fff6c9; box-shadow: 0 3px 0 rgba(0,0,0,.18);
     font-size: 22px; font-weight: 700; color: #3b2f63; font-variant-numeric: tabular-nums; }
@@ -98,7 +98,7 @@
   #welcome { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
     background: rgba(59,47,99,.55); padding: 16px; z-index: 11; }
   #welcome.show { display: flex; }
-  #welcome .panel { background: #fff; border-radius: 28px; padding: 20px 18px 16px; max-width: 520px; width: 100%;
+  #welcome .panel { position: relative; background: #fff; border-radius: 28px; padding: 20px 18px 16px; max-width: 520px; width: 100%;
     box-shadow: 0 6px 0 rgba(0,0,0,.2); color: #3b2f63; text-align: center; animation: popIn .35s; }
   #welcome h1 { margin: 0 0 14px; font-size: 26px; }
   .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -162,6 +162,7 @@
     </div>
     <p class="packs"><b>Packs</b><span id="welcomePacks"></span></p>
     <p class="packs soon"><b>Coming soon</b>🎄 Christmas · 🚗 Vehicles</p>
+    <button id="welcomeClose" class="tool" aria-label="Close">✖️</button>
   </div>
 </div>
 

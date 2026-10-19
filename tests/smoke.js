@@ -42,11 +42,11 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
       await page.mouse.up();
     }
 
-    // 0. the first visit opens on the welcome; 🎨 starts free build
+    // 0. the first visit opens on the welcome; tapping outside it leaves a blank board in free build
     await page.waitForSelector('#welcome.show');
     assert.match(await page.textContent('#welcomePacks'), /Toy Box.*Halloween/);
     await shot('00-welcome');
-    await page.click('#welcomeFree');
+    await page.mouse.click(5, 795);
     await page.waitForSelector('#welcome', { state: 'hidden' });
     assert.equal(await page.evaluate(() => window.magnetGame.state.mode), 'free');
 
@@ -230,6 +230,12 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.click('#welcomeChallenge');
     await page.waitForSelector('#picker.show');
     await page.click('#pickClose');
+    // ✖️ just closes it and leaves you where you were
+    await page.click('#btnHelp');
+    await page.waitForSelector('#welcome.show');
+    await page.click('#welcomeClose');
+    await page.waitForSelector('#welcome', { state: 'hidden' });
+    assert.equal(await page.evaluate(() => window.magnetGame.state.mode), 'challenge');
 
     // 9. landscape layout still fits: ground is visible and snapping works
     await page.setViewportSize({ width: 900, height: 480 });
