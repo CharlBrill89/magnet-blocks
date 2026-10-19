@@ -17,13 +17,14 @@ build earns 🏆 points, and that's the only score.
 | --- | --- |
 | Drag a shape out of the bottom tray | A new block (there's no limit) follows your finger |
 | Drop it near another block | It snaps into place with a *click* and a glow 🧲 |
-| Tap a block | It turns 90° and is selected |
+| Tap a block | It is selected, ready for a new colour |
+| Tap the selected block again | It turns 90° |
 | Tap the round ↺ button beside the selected block | It turns 90° again |
 | Tap a color | It recolors the selected block and colors new blocks |
 | Drag a block into the tray | It's deleted 🗑️ |
 | Tap a shape in the tray | A block drops into the middle of the play area |
 | 🧹 | Clears everything |
-| 🎨 / 🎯 | Free build / challenges. 🎯 opens a grid where you choose a theme (🧸 Toy Box or 🎃 Halloween) and what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
+| 🎯 / 🎨 | Challenges / free build. 🎯 opens a grid where you choose a theme (🧸 Toy Box or 🎃 Halloween) and what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
 | 🏆 | Your score. It goes up every time you finish a build and is remembered on this device |
 | 🔊 | Sound on/off |
 
@@ -147,7 +148,7 @@ SHOTS=out npm run test:e2e   # also saves screenshots to ./out
 ```
 
 The smoke test checks ground snapping, sideways and stacked magnet snapping,
-tap-to-rotate, the ↺ rotate button, choosing a build from the picker, recoloring, deleting by dragging into the tray, the broom, completing
+tap to select then tap again to rotate, the ↺ rotate button, choosing a build from the picker, recoloring, deleting by dragging into the tray, the broom, completing
 the rocket challenge in the right colours (including fixing a wrong-coloured piece),
 the outline on ⭐ (pieces aren't pulled into it), the score for a finished build and that it
 survives a reload, ➡️ going to the next build on the path, the 🎃 theme and its pack bonus,

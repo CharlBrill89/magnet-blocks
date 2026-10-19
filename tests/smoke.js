@@ -62,12 +62,19 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     assert.ok(Math.abs(ps[2].x - ps[0].x) < 0.02 || Math.abs(ps[2].x - ps[1].x) < 0.02 || Math.abs(ps[2].x - 0.5) < 0.02);
     await shot('01-snapped');
 
-    // 4. tap rotates (and selects)
+    // 4. first tap selects, a second tap on the selected piece turns it
+    const sky = await toScreen(-3, 5);
+    await page.mouse.click(sky.x, sky.y);                // deselect
+    assert.equal(await page.evaluate(() => window.magnetGame.state.selected), null);
     const c = await toScreen(ps[2].x, ps[2].y);
     await page.mouse.click(c.x, c.y);
     ps = await pieces();
-    assert.equal(ps[2].rot, 1);
+    assert.equal(ps[2].rot, 0, 'first tap only selects');
     assert.equal(await page.evaluate(() => window.magnetGame.state.selected.id), ps[2].id);
+    await page.waitForTimeout(600);                      // two separate taps, not a double-click
+    await page.mouse.click(c.x, c.y);
+    ps = await pieces();
+    assert.equal(ps[2].rot, 1, 'tapping the selected piece turns it');
 
     // 4b. the round ↻ button beside the selected piece rotates it too
     const h = await page.evaluate(() => window.magnetGame.rotateHandle());

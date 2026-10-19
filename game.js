@@ -95,6 +95,7 @@
     drop() { tone(300, 0, 0.09, 'triangle', 0.25, 150); },
     pop() { tone(700, 0, 0.12, 'sine', 0.22, 180); },
     rotate() { tone(500, 0, 0.08, 'triangle', 0.2, 800); },
+    select() { tone(660, 0, 0.06, 'sine', 0.15); },
     color() { tone(880, 0, 0.1, 'sine', 0.18, 1320); },
     success() { [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568].forEach((f, i) => tone(f, i * 0.09, 0.28, 'triangle', 0.25)); },
   };
@@ -152,7 +153,7 @@
   function rotateHandle() {
     const p = state.selected;
     if (!p || state.drag || state.pieces.indexOf(p) < 0) return null;
-    const b = G.pieceBounds(p), c = w2s(b.maxX, b.maxY), r = 24;
+    const b = G.pieceBounds(p), c = w2s(b.maxX, b.maxY), r = 17;
     return {
       x: Math.min(view.W - r - 6, Math.max(r + 6, c.x + r * 0.9)),
       y: Math.min(view.H - view.trayH - r - 6, Math.max(view.topReserve + r, c.y - r * 0.9)),
@@ -174,12 +175,12 @@
     audio();
     const p = pos(e);
     const h = rotateHandle();
-    if (h && Math.hypot(p.x - h.x, p.y - h.y) <= h.r + 8) {
+    if (h && Math.hypot(p.x - h.x, p.y - h.y) <= h.r + 12) { // a little bigger than it looks, for small fingers
       rotatePiece(state.selected);
       afterChange();
       return;
     }
-    let piece, offX = 0, offY = 0, fromTray = false;
+    let piece, offX = 0, offY = 0, fromTray = false, wasSelected = false;
     if (inTray(p.y)) {
       fromTray = true;
       const w = s2w(p.x, p.y);
@@ -189,13 +190,14 @@
       const w = s2w(p.x, p.y);
       piece = G.hitTest(state.pieces, w.x, w.y, 0.25 * (e.pointerType === 'mouse' ? 0.4 : 1));
       if (!piece) { state.selected = null; return; }
+      wasSelected = state.selected === piece;
       offX = piece.x - w.x; offY = piece.y - w.y;
       state.pieces.splice(state.pieces.indexOf(piece), 1);
       state.pieces.push(piece);
       state.selected = piece;
     }
     canvas.setPointerCapture(e.pointerId);
-    state.drag = { id: e.pointerId, piece, offX, offY, fromTray, startX: p.x, startY: p.y,
+    state.drag = { id: e.pointerId, piece, offX, offY, fromTray, wasSelected, startX: p.x, startY: p.y,
       t0: performance.now(), moved: false, overTray: fromTray, contactKey: null };
     if (fromTray) state.selected = piece;
     drag(p);
@@ -238,7 +240,9 @@
       if (r.contact) sfx.click(); else sfx.drop();
       piece.pop = performance.now();
     } else if (!d.moved && performance.now() - d.t0 < TAP_MS && !d.fromTray) {
-      rotatePiece(piece); // tap = rotate + select
+      // First tap selects (so a colour can be picked); tapping the selected block turns it.
+      if (d.wasSelected) rotatePiece(piece);
+      else { piece.pop = performance.now(); sfx.select(); }
     } else {
       sfx.drop();
       if (state.glow) state.glow.fade = performance.now();
@@ -601,12 +605,12 @@
     ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, h.r, 0, Math.PI * 2); ctx.fill();
     ctx.shadowColor = 'transparent';
-    ctx.strokeStyle = '#8e4fd0'; ctx.fillStyle = '#8e4fd0'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.strokeStyle = '#8e4fd0'; ctx.fillStyle = '#8e4fd0'; ctx.lineWidth = 3; ctx.lineCap = 'round';
     const r = h.r * 0.5, a0 = -Math.PI * 0.35, a1 = Math.PI * 1.25;
     ctx.beginPath(); ctx.arc(0, 0, r, a0, a1); ctx.stroke();
     // arrowhead at the start of the arc, pointing anticlockwise like the turn
     ctx.translate(Math.cos(a0) * r, Math.sin(a0) * r); ctx.rotate(a0);
-    ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(7, 3); ctx.lineTo(-7, 3); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, -4.5); ctx.lineTo(5, 2.5); ctx.lineTo(-5, 2.5); ctx.closePath(); ctx.fill();
     ctx.restore();
   }
 
