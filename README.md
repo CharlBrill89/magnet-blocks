@@ -7,7 +7,8 @@ Build anything you like, or build one of the 10 creations pictured on the box.
 ![Challenge complete](docs/challenge-won.png)
 
 It is made for tablets and phones first and works with a mouse too. Instead of words it
-uses emoji, big touch targets and happy sounds. It has no timers, scores or fail states.
+uses emoji, big touch targets and happy sounds. It has no timers or fail states. Finishing a
+build earns 🏆 points, and that's the only score.
 
 ## How to play
 
@@ -22,6 +23,7 @@ uses emoji, big touch targets and happy sounds. It has no timers, scores or fail
 | Tap a shape in the tray | A block drops into the middle of the play area |
 | 🧹 | Clears everything |
 | 🎨 / 🎯 | Free build / challenges. 🎯 opens a grid where you choose what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
+| 🏆 | Your score. It goes up every time you finish a build and is remembered on this device |
 | 🔊 | Sound on/off |
 
 **Challenges 🎯:** a card says what to build, for example "Build a Rocket! 🚀". It shows
@@ -37,6 +39,18 @@ on the card sets the difficulty, and the choice is remembered:
 When your blocks form **one connected, snapped structure** with at least those pieces
 **in those colours**, there's confetti and a little tune, and a ➡️ button moves on.
 Blocks lying elsewhere on the board don't count against you.
+
+**Score 🏆:** each finished build gives points. A "+N" flies from the card to the 🏆
+counter, which counts up with a little *ding*:
+
+| | Points |
+| --- | --- |
+| Each piece in the build | 10 |
+| On ⭐⭐ | ×2 |
+| First time you finish that build | +50 bonus |
+
+So the Rocket (5 pieces) is worth 50 on ⭐, or 150 the first time on ⭐⭐. The score and the
+✅ finished builds are saved in `localStorage`, so they survive a reload.
 
 ![The 10 builds](docs/builds.png)
 
@@ -103,7 +117,8 @@ SHOTS=out npm run test:e2e   # also saves screenshots to ./out
 The smoke test checks ground snapping, sideways and stacked magnet snapping,
 tap-to-rotate, the ↺ rotate button, choosing a build from the picker, recoloring, deleting by dragging into the tray, the broom, completing
 the rocket challenge in the right colours (including fixing a wrong-coloured piece),
-the outline on ⭐ (pieces aren't pulled into it), and the landscape layout. It fails on any page error.
+the outline on ⭐ (pieces aren't pulled into it), the score for a finished build and that it
+survives a reload, and the landscape layout. It fails on any page error.
 
 ## Roadmap
 

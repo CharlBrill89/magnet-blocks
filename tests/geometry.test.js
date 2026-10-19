@@ -175,3 +175,14 @@ test('needs are derived from the layout', () => {
   assert.deepEqual(G.needFromLayout([['square', 'red'], ['triangle', 'red'], ['square', 'red']]),
     [{ shape: 'square', color: 'red', n: 2 }, { shape: 'triangle', color: 'red', n: 1 }]);
 });
+
+test('challenge score: 10 per piece, doubled on ⭐⭐, bonus the first time', () => {
+  const rocket = G.CHALLENGES.find((c) => c.id === 'rocket'); // 5 pieces
+  assert.equal(G.challengeScore(rocket, 1, false), 50);
+  assert.equal(G.challengeScore(rocket, 2, false), 100);
+  assert.equal(G.challengeScore(rocket, 1, true), 100);
+  assert.equal(G.challengeScore(rocket, 2, true), 150);
+  // bigger builds are worth more
+  const castle = G.CHALLENGES.find((c) => c.id === 'castle'); // 7 pieces
+  assert.ok(G.challengeScore(castle, 1, false) > G.challengeScore(rocket, 1, false));
+});

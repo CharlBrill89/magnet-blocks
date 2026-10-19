@@ -17,7 +17,15 @@
     mode: 'free', challengeIdx: 0, won: false,
     drag: null, glow: null, particles: [], muted: false,
     level: loadLevel(), // 1 ⭐ outline of the build, 2 ⭐⭐ counts only
+    score: Number(load('magnet-blocks-score', 0)) || 0, lastGain: 0,
   };
+  function load(key, fallback) {
+    try { const v = JSON.parse(localStorage.getItem(key)); if (v !== null) return v; } catch (e) { /* private mode */ }
+    return fallback;
+  }
+  function save(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* ignore */ }
+  }
   function loadLevel() {
     try { const v = Number(localStorage.getItem('magnet-blocks-difficulty')); if (v === 1 || v === 2) return v; } catch (e) { /* private mode */ }
     return 1;
@@ -275,7 +283,7 @@
   }
 
   // ----- choose what to build
-  const doneBuilds = new Set();
+  const doneBuilds = new Set([].concat(load('magnet-blocks-done', [])));
   function openPicker() {
     $('pickGrid').innerHTML = G.CHALLENGES.map((ch, i) =>
       `<button class="pick${i === state.challengeIdx ? ' current' : ''}${doneBuilds.has(ch.id) ? ' done' : ''}" ` +
@@ -361,11 +369,46 @@
     const prog = updateCard();
     if (prog && prog.done && !state.won) {
       state.won = true;
-      doneBuilds.add(G.CHALLENGES[state.challengeIdx].id);
+      const ch = G.CHALLENGES[state.challengeIdx];
+      const gain = G.challengeScore(ch, state.level, !doneBuilds.has(ch.id));
+      doneBuilds.add(ch.id);
+      save('magnet-blocks-done', [...doneBuilds]);
+      addScore(gain);
+      $('gain').textContent = `+${gain} 🏆`;
       $('card').classList.add('won');
       sfx.success();
       confetti();
     }
+  }
+
+  // ----- score: a "+N" flies from the card to the 🏆 counter, which counts up
+  let shownScore = state.score;
+  function syncScore() { $('scoreN').textContent = String(Math.round(shownScore)); }
+  function addScore(gain) {
+    state.score += gain; state.lastGain = gain;
+    save('magnet-blocks-score', state.score);
+    const from = $('card').getBoundingClientRect(), to = $('score').getBoundingClientRect();
+    const fly = document.createElement('div');
+    fly.className = 'fly'; fly.textContent = `+${gain}`;
+    fly.style.left = from.left + from.width / 2 + 'px'; fly.style.top = from.top + from.height / 2 + 'px';
+    document.body.appendChild(fly);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      fly.style.transform = `translate(${to.left + to.width / 2 - from.left - from.width / 2}px, ${to.top - from.top - from.height / 2}px) scale(.6)`;
+      fly.style.opacity = '0.2';
+    }));
+    setTimeout(() => {
+      fly.remove();
+      const start = shownScore, t0 = performance.now();
+      const step = (now) => {
+        const k = Math.min(1, (now - t0) / 700);
+        shownScore = start + (state.score - start) * k;
+        syncScore();
+        if (k < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+      $('score').classList.remove('bump'); void $('score').offsetWidth; $('score').classList.add('bump');
+      tone(1568, 0, 0.12, 'sine', 0.2); tone(2093, 0.08, 0.18, 'sine', 0.2); // "ding-ding"
+    }, 900);
   }
 
   // ---------------------------------------------------------------- rendering
@@ -543,6 +586,7 @@
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   syncPalette();
   syncLevel();
+  syncScore();
   layout();
   requestAnimationFrame(frame);
 

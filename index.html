@@ -73,6 +73,16 @@
   .pick.done::after { content: '✅'; position: absolute; top: 2px; right: 4px; font-size: 18px; }
   .pick:active { transform: scale(.95); }
   #pickClose { position: absolute; top: -18px; right: -10px; width: 48px; height: 48px; font-size: 22px; }
+  #score { display: flex; align-items: center; gap: 4px; height: var(--btn); padding: 0 12px 0 8px;
+    border-radius: 16px; background: #fff6c9; box-shadow: 0 3px 0 rgba(0,0,0,.18);
+    font-size: 22px; font-weight: 700; color: #3b2f63; font-variant-numeric: tabular-nums; }
+  #score.bump { animation: bump .5s; }
+  #gain { display: none; padding: 6px 10px; border-radius: 14px; background: #ffd23f; color: #3b2f63;
+    font-size: 20px; font-weight: 700; white-space: nowrap; }
+  #card.won #gain { display: block; animation: bump .6s; }
+  .fly { position: fixed; z-index: 5; pointer-events: none; font-size: 26px; font-weight: 700; color: #3b2f63;
+    text-shadow: 0 2px 0 #fff; transition: transform .9s cubic-bezier(.5,-0.3,.7,1), opacity .9s; }
+  @keyframes bump { 40% { transform: scale(1.3); } }
   @keyframes wiggle { 50% { transform: scale(1.1) rotate(-3deg); } }
 </style>
 </head>
@@ -83,6 +93,7 @@
   <div class="group">
     <button id="btnFree" class="tool on" aria-label="Free build" title="Free build">🎨</button>
     <button id="btnChallenge" class="tool" aria-label="Challenges" title="Challenges">🎯</button>
+    <div id="score" role="status" aria-label="Score" title="Score">🏆<span id="scoreN">0</span></div>
   </div>
   <div id="palette" role="group" aria-label="Colors"></div>
   <div class="group">
@@ -96,6 +107,7 @@
   <h1 id="cardTitle"></h1>
   <div id="chips"></div>
   <button id="level" class="tool" title="Difficulty"></button>
+  <div id="gain"></div>
   <button id="next" aria-label="Next challenge">➡️</button>
 </div>
 

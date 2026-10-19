@@ -135,7 +135,10 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await color('#e5393b');                              // ...recolour it red (still selected)
     assert.equal(await page.evaluate(() => window.magnetGame.state.won), true);
     await page.waitForSelector('#card.won #next');
-    await page.waitForTimeout(400);
+    // first rocket on ⭐⭐: 5 pieces × 10 × 2 + 50 first-time bonus
+    assert.equal(await page.evaluate(() => window.magnetGame.state.score), 150);
+    assert.equal(await page.textContent('#gain'), '+150 🏆');
+    await page.waitForFunction(() => document.getElementById('scoreN').textContent === '150');
     await shot('03-won');
     await page.click('#next', { force: true }); // it wiggles
     assert.equal((await pieces()).length, 0);
@@ -171,6 +174,15 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.click('#cardEmoji'); await page.click('#pickClose');
     await page.waitForSelector('#picker', { state: 'hidden' });
     assert.match(await page.textContent('#cardTitle'), /Horse/);
+
+    // 8d. the score and finished builds survive a reload
+    await page.reload();
+    await page.waitForFunction(() => window.magnetGame);
+    assert.equal(await page.textContent('#scoreN'), '150');
+    await page.click('#btnChallenge');
+    await page.waitForSelector('#picker.show');
+    assert.equal(await page.locator('.pick.done').count(), 1);
+    await page.click('#pickClose');
 
     // 9. landscape layout still fits: ground is visible and snapping works
     await page.setViewportSize({ width: 900, height: 480 });

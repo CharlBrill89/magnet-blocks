@@ -386,10 +386,19 @@
     return { have: best, done };
   }
 
+  // Points for finishing a build: 10 per piece, doubled on ⭐⭐, plus a bonus
+  // the first time that build is ever finished.
+  const POINTS_PER_PIECE = 10;
+  const FIRST_TIME_BONUS = 50;
+  function challengeScore(challenge, level, firstTime) {
+    return challenge.layout.length * POINTS_PER_PIECE * (level === 2 ? 2 : 1) + (firstTime ? FIRST_TIME_BONUS : 0);
+  }
+
   return {
     EPS, SNAP_THRESHOLD, CONTACT_EPS, SHAPES, SHAPE_ORDER, COLORS, COLOR_HEX, CHALLENGES, needFromLayout,
     targetSlots,
     rotate, toWorld, worldPolygon, worldSnapPoints, pieceBounds, polygonArea,
     snapPiece, hitTest, pointInPolygon, touching, components, countShapes, challengeProgress,
+    POINTS_PER_PIECE, FIRST_TIME_BONUS, challengeScore,
   };
 });
