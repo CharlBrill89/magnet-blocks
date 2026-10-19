@@ -30,6 +30,7 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     };
     const pieces = () => page.evaluate(() => window.magnetGame.state.pieces.map((p) => ({ ...p })));
     const toScreen = (x, y) => page.evaluate(([x, y]) => window.magnetGame.w2s(x, y), [x, y]);
+    const idx = (id) => page.evaluate((id) => window.MagnetGeometry.CHALLENGES.findIndex((c) => c.id === id), id);
     const tray = (shape) => page.evaluate((s) => window.magnetGame.trayPoint(s), shape);
     // drag a tray shape so its centre lands at world (x, y)
     async function dragFromTray(shape, x, y) {
@@ -96,12 +97,15 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.click('#btnClear');
     assert.equal((await pieces()).length, 0);
 
-    // 8. challenge #1 is the rocket: red nose, 2 blue squares, 2 orange fins
+    // 8. the rocket: red nose, 2 blue squares, 2 orange fins
     await page.click('#btnChallenge');
     await page.waitForSelector('#picker.show');            // 🎯 opens the "what to build?" grid
-    assert.equal(await page.locator('.pick').count(), 10);
+    assert.equal(await page.locator('.pick').count(), 10); // the Toy Box pack, easiest first
+    assert.equal(await page.locator('.packTab').count(), 2);
+    assert.match(await page.textContent('.pick[data-i="0"]'), /🟢/);
     await shot('02a-picker');
-    await page.click('.pick[data-i="0"]');                 // rocket
+    const rocket = await idx('rocket');
+    await page.click(`.pick[data-i="${rocket}"]`);
     await page.waitForSelector('#picker', { state: 'hidden' });
     await page.waitForSelector('#card.show');
     assert.match(await page.textContent('#cardTitle'), /Rocket/);
@@ -112,6 +116,7 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.click('#level');
     assert.equal(await page.textContent('#level'), '⭐⭐');
     assert.equal(await page.evaluate(() => window.magnetGame.slots().length), 0);
+    assert.equal(await page.textContent('#gain'), '+150 🏆');  // points on offer
     await shot('02-challenge');
     const color = (hex) => page.click(`.swatch[data-color="${hex}"]`);
     // tap empty sky to deselect, so picking a colour doesn't repaint the last piece
@@ -134,12 +139,17 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.textContent('#chips .chip[data-i="1"]').then((t) => assert.match(t, /0\/1/));
     await color('#e5393b');                              // ...recolour it red (still selected)
     assert.equal(await page.evaluate(() => window.magnetGame.state.won), true);
-    await page.waitForSelector('#card.won #next');
-    await page.waitForTimeout(400);
+    await page.waitForSelector('#next.show');               // big ➡️ showing what's next
+    assert.equal(await page.textContent('#nextEmoji'), '🗼');
+    // first rocket on ⭐⭐: 5 pieces × 10 × 2 + 50 first-time bonus
+    assert.equal(await page.evaluate(() => window.magnetGame.state.score), 150);
+    assert.equal(await page.textContent('#gain'), '+150 🏆');
+    await page.waitForFunction(() => document.getElementById('scoreN').textContent === '150');
     await shot('03-won');
     await page.click('#next', { force: true }); // it wiggles
     assert.equal((await pieces()).length, 0);
-    assert.equal(await page.evaluate(() => window.magnetGame.state.challengeIdx), 1);
+    assert.equal(await page.evaluate(() => window.magnetGame.state.challengeIdx), await idx('tower'));
+    assert.equal(await page.locator('#next.show').count(), 0);
     assert.match(await page.textContent('#cardTitle'), /Tower/);
 
     // 8b. ⭐ outline: shown behind the build, but pieces don't jump into it
@@ -162,8 +172,8 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.click('#cardEmoji');
     await page.waitForSelector('#picker.show');
     assert.equal(await page.locator('.pick.done').count(), 1);
-    assert.equal(await page.getAttribute('.pick.done', 'data-i'), '0');   // rocket done
-    await page.click('.pick[data-i="4"]');
+    assert.equal(await page.getAttribute('.pick.done', 'data-i'), String(rocket));
+    await page.click(`.pick[data-i="${await idx('horse')}"]`);
     assert.match(await page.textContent('#cardTitle'), /Horse/);
     assert.equal((await pieces()).length, 0);               // fresh board
     assert.equal(await page.evaluate(() => window.magnetGame.slots().length), 6);
@@ -172,9 +182,41 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.waitForSelector('#picker', { state: 'hidden' });
     assert.match(await page.textContent('#cardTitle'), /Horse/);
 
+    // 8d. the score and finished builds survive a reload (pretend all of Halloween but the candy corn is done)
+    await page.evaluate(() => {
+      const done = JSON.parse(localStorage.getItem('magnet-blocks-done'));
+      for (const c of window.MagnetGeometry.CHALLENGES) if (c.pack === 'halloween' && c.id !== 'candycorn') done.push(c.id);
+      localStorage.setItem('magnet-blocks-done', JSON.stringify(done));
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.magnetGame);
+    assert.equal(await page.textContent('#scoreN'), '150');
+    await page.click('#btnChallenge');
+    await page.waitForSelector('#picker.show');
+    assert.equal(await page.locator('.pick.done').count(), 1);
+
+    // 8e. 🎃 Halloween pack: dusk theme; finishing the last build gives the pack bonus
+    await page.click('.packTab[data-pack="halloween"]');
+    assert.equal(await page.locator('.pick').count(), 7);
+    await shot('06a-halloween-picker');
+    await page.click(`.pick[data-i="${await idx('candycorn')}"]`);
+    assert.equal(await page.evaluate(() => window.magnetGame.theme()), 'halloween');
+    assert.equal(await page.textContent('#level'), '⭐');
+    assert.equal(await page.textContent('#gain'), '+70 🏆');  // easy, 2 pieces, first time
+    await pickForNext('#f6b800');
+    await dragFromTray('trapezoid', 0.05, 0.6);
+    const cx = (await pieces())[0].x;
+    await pickForNext('#ff7a1a');
+    await dragFromTray('triangle', cx + 0.05, 1.6);
+    assert.equal(await page.evaluate(() => window.magnetGame.state.won), true);
+    assert.equal(await page.evaluate(() => window.magnetGame.state.score), 150 + 70 + 200);
+    await page.waitForFunction(() => document.getElementById('scoreN').textContent === '420', null, { timeout: 5000 });
+    await shot('06-halloween-won');
+
     // 9. landscape layout still fits: ground is visible and snapping works
     await page.setViewportSize({ width: 900, height: 480 });
     await page.click('#btnFree');
+    assert.equal(await page.evaluate(() => window.magnetGame.theme()), 'toybox');
     await dragFromTray('arch', 0, 0.7);
     ps = await pieces();
     near(ps[0].y, 0.5);

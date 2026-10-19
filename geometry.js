@@ -94,53 +94,86 @@
     { name: 'teal', hex: '#17b5b0' },
   ];
 
-  // The 10 builds from the box, each drawn as a target layout:
+  // Builds come in themed packs. Each is drawn as a target layout:
   // [shape, colour, x, y, rot] with (x, y) the piece centre, ground at y = 0.
   // The required counts (`need`) are derived from the layout, and per shape
   // they never exceed the pieces in the box.
+  const PACKS = [
+    { id: 'toybox', emoji: '🧸', name: 'Toy Box' },       // the 10 builds pictured on the box
+    { id: 'halloween', emoji: '🎃', name: 'Halloween' },
+  ];
   const BUILDS = [
-    { id: 'rocket', emoji: '🚀', name: 'Rocket', layout: [
+    { id: 'rocket', pack: 'toybox', emoji: '🚀', name: 'Rocket', layout: [
       ['square', 'blue', 0, 0.5, 0], ['square', 'blue', 0, 1.5, 0], ['triangle', 'red', 0, 2.5, 0],
       ['triangle', 'orange', -1, 0.5, 0], ['triangle', 'orange', 1, 0.5, 0]] },
-    { id: 'tower', emoji: '🗼', name: 'Tower', layout: [
+    { id: 'tower', pack: 'toybox', emoji: '🗼', name: 'Tower', layout: [
       ['square', 'purple', 0, 0.5, 0], ['square', 'purple', 0, 1.5, 0], ['square', 'teal', 0, 2.5, 0],
       ['square', 'teal', 0, 3.5, 0], ['triangle', 'gold', 0, 4.5, 0]] },
-    { id: 'castle', emoji: '🏰', name: 'Castle', layout: [
+    { id: 'castle', pack: 'toybox', emoji: '🏰', name: 'Castle', layout: [
       ['arch', 'red', 0, 0.5, 0],
       ['square', 'gold', -1.5, 0.5, 0], ['square', 'gold', -1.5, 1.5, 0],
       ['square', 'gold', 1.5, 0.5, 0], ['square', 'gold', 1.5, 1.5, 0],
       ['triangle', 'purple', -1.5, 2.5, 0], ['triangle', 'purple', 1.5, 2.5, 0]] },
-    { id: 'robot', emoji: '🤖', name: 'Robot', layout: [
+    { id: 'robot', pack: 'toybox', emoji: '🤖', name: 'Robot', layout: [
       ['square', 'teal', -0.5, 0.5, 0], ['square', 'teal', 0.5, 0.5, 0],     // legs
       ['trapezoid', 'blue', 0, 1.5, 2],                                     // body
       ['square', 'teal', -1.5, 1.5, 0], ['square', 'teal', 1.5, 1.5, 0],     // arms
       ['square', 'gold', 0, 2.5, 0]] },                                     // head
-    { id: 'horse', emoji: '🐴', name: 'Horse', layout: [
+    { id: 'horse', pack: 'toybox', emoji: '🐴', name: 'Horse', layout: [
       ['arch', 'orange', 0, 0.5, 0],                                        // body + legs
       ['square', 'orange', 0.5, 1.5, 0], ['square', 'orange', 0.5, 2.5, 0], // neck + head
       ['quarter', 'orange', 1.5, 2.5, 3],                                   // muzzle
       ['quarter', 'orange', -1.5, 1.5, 1],                                  // tail
       ['triangle', 'red', 0.5, 3.5, 0]] },                                  // ear
-    { id: 'dome', emoji: '🏠', name: 'Dome House', layout: [
+    { id: 'dome', pack: 'toybox', emoji: '🏠', name: 'Dome House', layout: [
       ['square', 'gold', -0.5, 0.5, 0], ['square', 'gold', 0.5, 0.5, 0],
       ['quarter', 'red', -0.5, 1.5, 1], ['quarter', 'red', 0.5, 1.5, 0],    // dome
       ['quarter', 'red', -1.5, 0.5, 1], ['quarter', 'red', 1.5, 0.5, 0]] }, // rounded sides
-    { id: 'guitar', emoji: '🎸', name: 'Guitar', layout: [
+    { id: 'guitar', pack: 'toybox', emoji: '🎸', name: 'Guitar', layout: [
       ['quarter', 'purple', -0.5, 0.5, 2], ['quarter', 'purple', 0.5, 0.5, 3], // round bottom
       ['arch', 'purple', 0, 1.5, 0],                                        // body + sound hole
       ['square', 'green', 0, 2.5, 0], ['square', 'green', 0, 3.5, 0]] },    // neck
-    { id: 'boat', emoji: '⛵', name: 'Boat', layout: [
+    { id: 'boat', pack: 'toybox', emoji: '⛵', name: 'Boat', layout: [
       ['trapezoid', 'blue', 0, 0.5, 2],                                     // hull
       ['square', 'green', -0.5, 1.5, 0],                                    // mast
       ['triangle', 'gold', 0.5, 1.5, 0],                                    // sail
       ['triangle', 'red', -0.5, 2.5, 0]] },                                 // flag
-    { id: 'bridge', emoji: '🌉', name: 'Bridge', layout: [
+    { id: 'bridge', pack: 'toybox', emoji: '🌉', name: 'Bridge', layout: [
       ['arch', 'green', -1, 0.5, 0], ['arch', 'green', 1, 0.5, 0],
       ['square', 'teal', -1.5, 1.5, 0], ['square', 'teal', 1.5, 1.5, 0]] },
-    { id: 'tree', emoji: '🌲', name: 'Tree', layout: [
+    { id: 'tree', pack: 'toybox', emoji: '🌲', name: 'Tree', layout: [
       ['square', 'orange', 0, 0.5, 0],                                      // trunk
       ['triangle', 'green', -0.5, 1.5, 0], ['triangle', 'green', 0.5, 1.5, 0],
       ['triangle', 'green', 0, 2.5, 0]] },
+
+    { id: 'candycorn', pack: 'halloween', emoji: '🍬', name: 'Candy Corn', layout: [
+      ['trapezoid', 'gold', 0, 0.5, 0], ['triangle', 'orange', 0, 1.5, 0]] },
+    { id: 'hat', pack: 'halloween', emoji: '🧙', name: 'Witch Hat', layout: [
+      ['square', 'purple', -1, 0.5, 0], ['square', 'purple', 0, 0.5, 0],     // brim
+      ['square', 'purple', 1, 0.5, 0],
+      ['trapezoid', 'gold', 0, 1.5, 0],                                     // band
+      ['triangle', 'purple', 0, 2.5, 0]] },                                 // tip
+    { id: 'cat', pack: 'halloween', emoji: '🐈‍⬛', name: 'Cat', layout: [
+      ['square', 'purple', -0.5, 0.5, 0], ['square', 'purple', 0.5, 0.5, 0], // body
+      ['square', 'purple', -0.5, 1.5, 0],                                   // head
+      ['triangle', 'purple', -0.5, 2.5, 0],                                 // ear
+      ['quarter', 'purple', 1.5, 1.5, 0]] },                                // tail
+    { id: 'haunted', pack: 'halloween', emoji: '🏚️', name: 'Haunted House', layout: [
+      ['arch', 'purple', 0, 0.5, 0],                                        // spooky door
+      ['square', 'gold', -1.5, 0.5, 0], ['square', 'gold', 1.5, 0.5, 0],     // lit windows
+      ['trapezoid', 'green', 0, 1.5, 0], ['triangle', 'green', 0, 2.5, 0]] }, // roof + spire
+    { id: 'ghost', pack: 'halloween', emoji: '👻', name: 'Ghost', layout: [
+      ['arch', 'teal', 0, 0.5, 0],                                          // wavy bottom
+      ['square', 'teal', -0.5, 1.5, 0], ['square', 'teal', 0.5, 1.5, 0],
+      ['quarter', 'teal', -0.5, 2.5, 1], ['quarter', 'teal', 0.5, 2.5, 0]] }, // round head
+    { id: 'bat', pack: 'halloween', emoji: '🦇', name: 'Bat', layout: [
+      ['square', 'purple', 0, 0.5, 0], ['square', 'purple', 0, 1.5, 0],      // perch + body
+      ['quarter', 'purple', -1, 1.5, 1], ['quarter', 'purple', 1, 1.5, 0],  // wings
+      ['triangle', 'purple', -0.5, 2.5, 0], ['triangle', 'purple', 0.5, 2.5, 0]] }, // ears
+    { id: 'pumpkin', pack: 'halloween', emoji: '🎃', name: 'Pumpkin', layout: [
+      ['quarter', 'orange', -0.5, 0.5, 2], ['quarter', 'orange', 0.5, 0.5, 3],
+      ['quarter', 'orange', -0.5, 1.5, 1], ['quarter', 'orange', 0.5, 1.5, 0],
+      ['triangle', 'green', 0, 2.5, 0]] },                                  // stem
   ];
 
   /** Derive the per-(shape, colour) counts from a layout, in first-seen order. */
@@ -153,7 +186,28 @@
     return need;
   }
 
-  const CHALLENGES = BUILDS.map((b) => Object.assign({}, b, { need: needFromLayout(b.layout) }));
+  /**
+   * How hard a layout is: one per piece, two more per turned piece (turning is
+   * the trickiest part for little hands) and one per extra kind of shape.
+   */
+  function complexity(layout) {
+    const kinds = new Set(layout.map((r) => r[0])).size;
+    return layout.length + 2 * layout.filter((r) => r[4] % 4 !== 0).length + kinds - 1;
+  }
+  /** 1 easy 🟢, 2 medium 🟡, 3 hard 🔴. */
+  function tierOf(layout) {
+    const c = complexity(layout);
+    return c <= 6 ? 1 : c <= 10 ? 2 : 3;
+  }
+
+  // Within each pack the builds run from easiest to hardest: that's the path ➡️ follows.
+  const CHALLENGES = [];
+  for (const pack of PACKS) {
+    BUILDS.filter((b) => b.pack === pack.id)
+      .map((b) => Object.assign({}, b, { need: needFromLayout(b.layout), complexity: complexity(b.layout), tier: tierOf(b.layout) }))
+      .sort((a, b) => a.complexity - b.complexity || a.layout.length - b.layout.length)
+      .forEach((b) => CHALLENGES.push(b));
+  }
 
   const COLOR_HEX = {};
   for (const c of COLORS) COLOR_HEX[c.name] = c.hex;
@@ -367,29 +421,76 @@
     return c;
   }
 
+  function centroid(poly) {
+    let x = 0, y = 0;
+    for (const p of poly) { x += p.x; y += p.y; }
+    return { x: x / poly.length, y: y / poly.length };
+  }
+
+  /** Does `piece`, shifted by (dx, dy), cover exactly the same outline as `slot`? */
+  function fillsSlot(piece, slot, dx, dy) {
+    if (piece.shape !== slot.shape || String(piece.color).toLowerCase() !== slot.color) return false;
+    const pa = worldPolygon(piece), pb = worldPolygon(slot);
+    return pa.every((p) => pb.some((q) => Math.hypot(p.x + dx - q.x, p.y + dy - q.y) <= CONTACT_EPS));
+  }
+
   /**
-   * Progress towards a challenge: the best snapped structure on the board.
-   * Pieces only count when both shape and colour match a need.
-   * Returns { have, done }: have[i] is how many of challenge.need[i] that
-   * structure contains (capped at what's needed).
+   * Progress towards a challenge: pieces only count when they sit in the right
+   * place in the build (right shape, colour and turn), wherever on the board
+   * the build stands. Tries lining the target up under each placed piece and
+   * keeps the best fit.
+   * Returns { have, done }: have[i] is how many of challenge.need[i] are in
+   * the right place.
    */
   function challengeProgress(pieces, challenge) {
-    const zero = challenge.need.map(() => 0);
-    let best = zero, bestScore = -1, done = false;
-    for (const comp of components(pieces)) {
-      const have = challenge.need.map((r) => Math.min(r.n, comp.filter((p) =>
-        p.shape === r.shape && String(p.color).toLowerCase() === COLOR_HEX[r.color]).length));
-      const score = have.reduce((a, b) => a + b, 0);
-      if (score > bestScore) { bestScore = score; best = have; }
-      if (have.every((h, i) => h >= challenge.need[i].n)) { done = true; best = have; break; }
+    const slots = challenge.layout.map(([shape, color, x, y, rot]) => ({
+      shape, color: COLOR_HEX[color], x, y, rot,
+      need: challenge.need.findIndex((r) => r.shape === shape && r.color === color),
+    }));
+    let best = challenge.need.map(() => 0), bestN = 0;
+    for (const anchor of pieces) {
+      for (const s of slots) {
+        const a = centroid(worldPolygon(anchor)), b = centroid(worldPolygon(s));
+        const dx = b.x - a.x, dy = b.y - a.y;
+        if (!fillsSlot(anchor, s, dx, dy)) continue;
+        const used = new Set(), have = challenge.need.map(() => 0);
+        for (const t of slots) {
+          const q = pieces.find((p) => !used.has(p) && fillsSlot(p, t, dx, dy));
+          if (q) { used.add(q); have[t.need]++; }
+        }
+        if (used.size > bestN) { bestN = used.size; best = have; }
+        if (bestN === slots.length) return { have: best, done: true };
+      }
     }
-    return { have: best, done };
+    return { have: best, done: false };
+  }
+
+  // Points for finishing a build: 10 per piece, times the tier (easy ×1,
+  // medium ×2, hard ×3), doubled on ⭐⭐, plus a bonus the first time that
+  // build is ever finished.
+  const POINTS_PER_PIECE = 10;
+  const FIRST_TIME_BONUS = 50;
+  /** Extra points the first time every build in a pack has been finished. */
+  const PACK_BONUS = 200;
+  function challengeScore(challenge, level, firstTime) {
+    return challenge.layout.length * POINTS_PER_PIECE * challenge.tier * (level === 2 ? 2 : 1) +
+      (firstTime ? FIRST_TIME_BONUS : 0);
+  }
+
+  /** The build ➡️ goes to: the next unfinished one along the pack's path, else simply the next one. */
+  function nextChallenge(idx, doneIds) {
+    const pack = CHALLENGES[idx].pack;
+    const path = CHALLENGES.map((c, i) => i).filter((i) => CHALLENGES[i].pack === pack);
+    const at = path.indexOf(idx);
+    const after = path.slice(at + 1).concat(path.slice(0, at));
+    return after.find((i) => !doneIds.has(CHALLENGES[i].id)) ?? after[0] ?? idx;
   }
 
   return {
-    EPS, SNAP_THRESHOLD, CONTACT_EPS, SHAPES, SHAPE_ORDER, COLORS, COLOR_HEX, CHALLENGES, needFromLayout,
+    EPS, SNAP_THRESHOLD, CONTACT_EPS, SHAPES, SHAPE_ORDER, COLORS, COLOR_HEX, PACKS, CHALLENGES, needFromLayout, complexity, tierOf,
     targetSlots,
     rotate, toWorld, worldPolygon, worldSnapPoints, pieceBounds, polygonArea,
     snapPiece, hitTest, pointInPolygon, touching, components, countShapes, challengeProgress,
+    POINTS_PER_PIECE, FIRST_TIME_BONUS, PACK_BONUS, challengeScore, nextChallenge,
   };
 });

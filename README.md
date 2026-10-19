@@ -2,12 +2,14 @@
 
 A browser game for toddlers and young children, based on a box of chunky magnetic
 stacking blocks. Drag shapes out of the tray. They click together like magnets.
-Build anything you like, or build one of the 10 creations pictured on the box.
+Build anything you like, or take on themed challenges: the 10 creations pictured on the box,
+plus a 🎃 Halloween pack.
 
 ![Challenge complete](docs/challenge-won.png)
 
 It is made for tablets and phones first and works with a mouse too. Instead of words it
-uses emoji, big touch targets and happy sounds. It has no timers, scores or fail states.
+uses emoji, big touch targets and happy sounds. It has no timers or fail states. Finishing a
+build earns 🏆 points, and that's the only score.
 
 ## How to play
 
@@ -21,7 +23,8 @@ uses emoji, big touch targets and happy sounds. It has no timers, scores or fail
 | Drag a block into the tray | It's deleted 🗑️ |
 | Tap a shape in the tray | A block drops into the middle of the play area |
 | 🧹 | Clears everything |
-| 🎨 / 🎯 | Free build / challenges. 🎯 opens a grid where you choose what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
+| 🎨 / 🎯 | Free build / challenges. 🎯 opens a grid where you choose a theme (🧸 Toy Box or 🎃 Halloween) and what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
+| 🏆 | Your score. It goes up every time you finish a build and is remembered on this device |
 | 🔊 | Sound on/off |
 
 **Challenges 🎯:** a card says what to build, for example "Build a Rocket! 🚀". It shows
@@ -34,14 +37,57 @@ on the card sets the difficulty, and the choice is remembered:
 | ⭐ | A plain grey **outline** of the build, without colours or piece lines. Pieces don't jump into it, so you still have to work out which pieces fit where. |
 | ⭐⭐ | Only the card's counts. |
 
-When your blocks form **one connected, snapped structure** with at least those pieces
-**in those colours**, there's confetti and a little tune, and a ➡️ button moves on.
-Blocks lying elsewhere on the board don't count against you.
+When your blocks **match the build**, with every piece in the right colour, in the right
+place and turned the right way, there's confetti and a little tune. The build can stand
+anywhere on the board. A ✅ on the card means all of that piece are in the right place,
+and `1/2` means one of two is. Then a big green ➡️ button
+appears just above the grass, showing the emoji of the next build. Blocks lying
+elsewhere on the board don't count against you.
+
+**Easy → hard 🟢🟡🔴:** each build gets a tier from how tricky it is: one point per piece,
+two more per piece that has to be turned, and one more per extra kind of shape.
+
+| Tier | Complexity |
+| --- | --- |
+| 🟢 easy | up to 6 |
+| 🟡 medium | 7–10 |
+| 🔴 hard | 11 and up |
+
+Within each theme the builds are ordered easiest first. ➡️ follows that path to the next
+build you haven't finished, so a child works up from the Bridge and the Tree to the Horse.
+Nothing is locked, and you can still pick any build from the grid. The grid shows each
+build's tier dot and the points it's worth.
+
+![Choosing a Halloween build](docs/picker.png)
+
+**Score 🏆:** each finished build gives points. A "+N" flies from the card to the 🏆
+counter, which counts up with a little *ding*:
+
+| | Points |
+| --- | --- |
+| Each piece in the build | 10 |
+| Tier | ×1 🟢, ×2 🟡, ×3 🔴 |
+| On ⭐⭐ | ×2 |
+| First time you finish that build | +50 bonus |
+| First time you finish every build in a theme | +200 bonus, with an encore of confetti |
+
+So the Rocket (5 pieces, 🟢) is worth 50 on ⭐, or 150 the first time on ⭐⭐. The Horse
+(6 pieces, 🔴) is worth 180 on ⭐. The card shows the points on offer before you start.
+The score and the ✅ finished builds are saved in `localStorage`, so they survive a reload.
+
+**Themes 🎃:** choosing a 🎃 Halloween build turns the sky to dusk, with a big moon,
+bats flitting past and pumpkins in the grass. The pack has 7 builds, all made from the
+same box of blocks: Candy Corn 🍬, Witch Hat 🧙, Cat 🐈‍⬛, Haunted House 🏚️, Ghost 👻,
+Bat 🦇 and Pumpkin 🎃.
+
+![The Halloween builds](docs/halloween.png)
 
 ![The 10 builds](docs/builds.png)
 
-Each build is a target layout in `geometry.js`, and its piece counts are worked out
-from that layout. No build needs more of a shape than the real box contains.
+Each build is a target layout in `geometry.js`, with the pack it belongs to (see `PACKS`).
+Its piece counts and tier are worked out from that layout. No build needs more of a
+shape than the real box contains. To add a theme, add an entry to `PACKS` and give
+its builds that `pack` id.
 
 ## The block set
 
@@ -103,7 +149,9 @@ SHOTS=out npm run test:e2e   # also saves screenshots to ./out
 The smoke test checks ground snapping, sideways and stacked magnet snapping,
 tap-to-rotate, the ↺ rotate button, choosing a build from the picker, recoloring, deleting by dragging into the tray, the broom, completing
 the rocket challenge in the right colours (including fixing a wrong-coloured piece),
-the outline on ⭐ (pieces aren't pulled into it), and the landscape layout. It fails on any page error.
+the outline on ⭐ (pieces aren't pulled into it), the score for a finished build and that it
+survives a reload, ➡️ going to the next build on the path, the 🎃 theme and its pack bonus,
+and the landscape layout. It fails on any page error.
 
 ## Roadmap
 
