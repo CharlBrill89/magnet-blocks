@@ -421,23 +421,48 @@
     return c;
   }
 
+  function centroid(poly) {
+    let x = 0, y = 0;
+    for (const p of poly) { x += p.x; y += p.y; }
+    return { x: x / poly.length, y: y / poly.length };
+  }
+
+  /** Does `piece`, shifted by (dx, dy), cover exactly the same outline as `slot`? */
+  function fillsSlot(piece, slot, dx, dy) {
+    if (piece.shape !== slot.shape || String(piece.color).toLowerCase() !== slot.color) return false;
+    const pa = worldPolygon(piece), pb = worldPolygon(slot);
+    return pa.every((p) => pb.some((q) => Math.hypot(p.x + dx - q.x, p.y + dy - q.y) <= CONTACT_EPS));
+  }
+
   /**
-   * Progress towards a challenge: the best snapped structure on the board.
-   * Pieces only count when both shape and colour match a need.
-   * Returns { have, done }: have[i] is how many of challenge.need[i] that
-   * structure contains (capped at what's needed).
+   * Progress towards a challenge: pieces only count when they sit in the right
+   * place in the build (right shape, colour and turn), wherever on the board
+   * the build stands. Tries lining the target up under each placed piece and
+   * keeps the best fit.
+   * Returns { have, done }: have[i] is how many of challenge.need[i] are in
+   * the right place.
    */
   function challengeProgress(pieces, challenge) {
-    const zero = challenge.need.map(() => 0);
-    let best = zero, bestScore = -1, done = false;
-    for (const comp of components(pieces)) {
-      const have = challenge.need.map((r) => Math.min(r.n, comp.filter((p) =>
-        p.shape === r.shape && String(p.color).toLowerCase() === COLOR_HEX[r.color]).length));
-      const score = have.reduce((a, b) => a + b, 0);
-      if (score > bestScore) { bestScore = score; best = have; }
-      if (have.every((h, i) => h >= challenge.need[i].n)) { done = true; best = have; break; }
+    const slots = challenge.layout.map(([shape, color, x, y, rot]) => ({
+      shape, color: COLOR_HEX[color], x, y, rot,
+      need: challenge.need.findIndex((r) => r.shape === shape && r.color === color),
+    }));
+    let best = challenge.need.map(() => 0), bestN = 0;
+    for (const anchor of pieces) {
+      for (const s of slots) {
+        const a = centroid(worldPolygon(anchor)), b = centroid(worldPolygon(s));
+        const dx = b.x - a.x, dy = b.y - a.y;
+        if (!fillsSlot(anchor, s, dx, dy)) continue;
+        const used = new Set(), have = challenge.need.map(() => 0);
+        for (const t of slots) {
+          const q = pieces.find((p) => !used.has(p) && fillsSlot(p, t, dx, dy));
+          if (q) { used.add(q); have[t.need]++; }
+        }
+        if (used.size > bestN) { bestN = used.size; best = have; }
+        if (bestN === slots.length) return { have: best, done: true };
+      }
     }
-    return { have: best, done };
+    return { have: best, done: false };
   }
 
   // Points for finishing a build: 10 per piece, times the tier (easy ×1,

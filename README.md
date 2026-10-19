@@ -37,8 +37,10 @@ on the card sets the difficulty, and the choice is remembered:
 | ⭐ | A plain grey **outline** of the build, without colours or piece lines. Pieces don't jump into it, so you still have to work out which pieces fit where. |
 | ⭐⭐ | Only the card's counts. |
 
-When your blocks form **one connected, snapped structure** with at least those pieces
-**in those colours**, there's confetti and a little tune. Then a big green ➡️ button
+When your blocks **match the build**, with every piece in the right colour, in the right
+place and turned the right way, there's confetti and a little tune. The build can stand
+anywhere on the board. A ✅ on the card means all of that piece are in the right place,
+and `1/2` means one of two is. Then a big green ➡️ button
 appears just above the grass, showing the emoji of the next build. Blocks lying
 elsewhere on the board don't count against you.
 

@@ -140,6 +140,32 @@ test('challenges: wrong colours do not count', () => {
   assert.equal(G.challengeProgress(stack, tower).done, true);
 });
 
+test('challenges: the right pieces in the wrong arrangement do not count', () => {
+  const tower = G.CHALLENGES.find((c) => c.id === 'tower');
+  // all five pieces, snapped side by side on the ground instead of stacked
+  const row = ['purple', 'purple', 'teal', 'teal'].map((c, i) => colored('square', c, i, 0.5, 's' + i));
+  row.push(colored('triangle', 'gold', 4, 0.5, 't'));
+  assert.equal(G.components(row).length, 1);
+  const prog = G.challengeProgress(row, tower);
+  assert.equal(prog.done, false);
+  assert.deepEqual(prog.have, [1, 0, 0]); // only pieces in the right place get ticked
+  // stack the first three properly: those three now count
+  const part = ['purple', 'purple', 'teal'].map((c, i) => colored('square', c, 0, i + 0.5, 'p' + i));
+  part.push(colored('square', 'teal', 1, 0.5, 'p3'), colored('triangle', 'gold', 2, 0.5, 'pt'));
+  assert.deepEqual(G.challengeProgress(part, tower).have, [2, 1, 0]);
+  // the build can stand anywhere on the board
+  const moved = ['purple', 'purple', 'teal', 'teal'].map((c, i) => colored('square', c, 7, i + 0.5, 'm' + i));
+  moved.push(colored('triangle', 'gold', 7, 4.5, 'mt'));
+  assert.equal(G.challengeProgress(moved, tower).done, true);
+  // a quarter turned the wrong way is not in the right place
+  const ghost = G.CHALLENGES.find((c) => c.id === 'ghost');
+  const slots = G.targetSlots(ghost);
+  assert.equal(G.challengeProgress(slots, ghost).done, true);
+  const wrong = slots.map((p) => Object.assign({}, p));
+  wrong[3].rot = 0;
+  assert.equal(G.challengeProgress(wrong, ghost).done, false);
+});
+
 test('every challenge fits in the box and uses real colours', () => {
   assert.equal(G.CHALLENGES.filter((c) => c.pack === 'toybox').length, 10);
   assert.ok(G.CHALLENGES.filter((c) => c.pack === 'halloween').length >= 6);
