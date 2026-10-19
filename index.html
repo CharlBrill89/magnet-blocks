@@ -95,6 +95,24 @@
   #picker.halloween .panel { background: #2d1b4e; }
   #picker.halloween .pick { background: #4a2f73; }
   #picker.halloween .pick span, #picker.halloween .pick .meta { color: #ffd9a8; }
+  /* First visit: what the two modes are and which packs there are. */
+  #welcome { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(59,47,99,.55); padding: 16px; z-index: 11; }
+  #welcome.show { display: flex; }
+  #welcome .panel { background: #fff; border-radius: 28px; padding: 20px 18px 16px; max-width: 520px; width: 100%;
+    box-shadow: 0 6px 0 rgba(0,0,0,.2); color: #3b2f63; text-align: center; animation: popIn .35s; }
+  #welcome h1 { margin: 0 0 14px; font-size: 26px; }
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mode { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 10px 12px;
+    border-radius: 22px; background: #efe9ff; color: #3b2f63; box-shadow: 0 3px 0 rgba(0,0,0,.12); }
+  .mode.main { background: #ffe27a; }
+  .mode:active { transform: scale(.96); }
+  .mode b { font-size: 44px; line-height: 1.1; }
+  .mode span { font-size: 18px; font-weight: 700; }
+  .mode small { font-size: 13px; line-height: 1.3; color: #6b5fa0; }
+  .packs { margin: 14px 0 0; font-size: 15px; line-height: 1.6; }
+  .packs b { display: block; font-size: 13px; color: #8a80aa; text-transform: uppercase; letter-spacing: .04em; }
+  .packs.soon { margin-top: 8px; color: #8a80aa; }
   @keyframes popIn { 0% { transform: scale(0); } 70% { transform: scale(1.15); } }
   @keyframes bump { 40% { transform: scale(1.3); } }
   @keyframes wiggle { 50% { transform: scale(1.1) rotate(-3deg); } }
@@ -106,11 +124,12 @@
 <div id="bar">
   <div class="group">
     <button id="btnChallenge" class="tool" aria-label="Challenges" title="Challenges">🎯</button>
-    <button id="btnFree" class="tool on" aria-label="Free build" title="Free build">🎨</button>
+    <button id="btnFree" class="tool" aria-label="Free build" title="Free build">🎨</button>
     <div id="score" role="status" aria-label="Score" title="Score">🏆<span id="scoreN">0</span></div>
   </div>
   <div id="palette" role="group" aria-label="Colors"></div>
   <div class="group">
+    <button id="btnHelp" class="tool" aria-label="About the game" title="About the game">❓</button>
     <button id="btnClear" class="tool" aria-label="Clear everything" title="Clear">🧹</button>
     <button id="btnSound" class="tool" aria-label="Sound on/off" title="Sound">🔊</button>
   </div>
@@ -131,6 +150,20 @@
     <div id="packTabs" role="tablist" aria-label="Themes"></div>
     <div id="pickGrid"></div>
     <button id="pickClose" class="tool" aria-label="Close">✖️</button>
+  </div>
+</div>
+
+<div id="welcome" role="dialog" aria-label="Welcome to Magnet Blocks">
+  <div class="panel">
+    <h1>🧲 Magnet Blocks</h1>
+    <div class="modes">
+      <button id="welcomeChallenge" class="mode main"><b>🎯</b><span>Challenges</span>
+        <small>Build the picture on the card. Score points and finish whole packs.</small></button>
+      <button id="welcomeFree" class="mode"><b>🎨</b><span>Free build</span>
+        <small>Build anything you like with every block in the box.</small></button>
+    </div>
+    <p class="packs"><b>Packs</b><span id="welcomePacks"></span></p>
+    <p class="packs soon"><b>Coming soon</b>🎄 Christmas · 🚗 Vehicles</p>
   </div>
 </div>
 

@@ -42,6 +42,14 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
       await page.mouse.up();
     }
 
+    // 0. the first visit opens on the welcome; 🎨 starts free build
+    await page.waitForSelector('#welcome.show');
+    assert.match(await page.textContent('#welcomePacks'), /Toy Box.*Halloween/);
+    await shot('00-welcome');
+    await page.click('#welcomeFree');
+    await page.waitForSelector('#welcome', { state: 'hidden' });
+    assert.equal(await page.evaluate(() => window.magnetGame.state.mode), 'free');
+
     // 1. ground snap: dropped slightly above the ground -> rests on y = 0
     await dragFromTray('square', 0, 0.8);
     let ps = await pieces();
@@ -198,7 +206,9 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.reload();
     await page.waitForFunction(() => window.magnetGame);
     assert.equal(await page.textContent('#scoreN'), '150');
-    await page.click('#btnChallenge');
+    // a returning player skips the welcome and starts in challenges
+    assert.equal(await page.isVisible('#welcome'), false);
+    assert.equal(await page.evaluate(() => window.magnetGame.state.mode), 'challenge');
     await page.waitForSelector('#picker.show');
     assert.equal(await page.locator('.pick.done').count(), 1);
 
@@ -219,6 +229,13 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     assert.equal(await page.evaluate(() => window.magnetGame.state.score), 150 + 70 + 200);
     await page.waitForFunction(() => document.getElementById('scoreN').textContent === '420', null, { timeout: 5000 });
     await shot('06-halloween-won');
+
+    // 8f. ❓ brings the welcome back
+    await page.click('#btnHelp');
+    await page.waitForSelector('#welcome.show');
+    await page.click('#welcomeChallenge');
+    await page.waitForSelector('#picker.show');
+    await page.click('#pickClose');
 
     // 9. landscape layout still fits: ground is visible and snapping works
     await page.setViewportSize({ width: 900, height: 480 });

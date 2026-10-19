@@ -333,6 +333,18 @@
   $('btnFree').addEventListener('click', () => setMode('free'));
   $('btnChallenge').addEventListener('click', () => setMode('challenge'));
   $('btnClear').addEventListener('click', () => clearAll());
+
+  // ----- welcome: shown on the first visit, and again from ❓
+  $('welcomePacks').textContent = G.PACKS.map((p) => `${p.emoji} ${p.name}`).join(' · ');
+  function showWelcome() { closePicker(); $('welcome').classList.add('show'); }
+  function startFrom(mode) {
+    $('welcome').classList.remove('show');
+    save('magnet-blocks-welcomed', true);
+    setMode(mode);
+  }
+  $('welcomeChallenge').addEventListener('click', () => startFrom('challenge'));
+  $('welcomeFree').addEventListener('click', () => startFrom('free'));
+  $('btnHelp').addEventListener('click', showWelcome);
   $('btnSound').addEventListener('click', () => {
     state.muted = !state.muted;
     $('btnSound').textContent = state.muted ? '🔇' : '🔊';
@@ -652,6 +664,8 @@
   syncLevel();
   syncScore();
   layout();
+  // First visit: a blank board and the welcome. After that: straight into challenges.
+  if (load('magnet-blocks-welcomed', false)) setMode('challenge'); else showWelcome();
   requestAnimationFrame(frame);
 
   // Small hook for the Playwright smoke test and debugging.

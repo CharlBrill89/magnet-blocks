@@ -24,7 +24,8 @@ build earns 🏆 points, and that's the only score.
 | Drag a block into the tray | It's deleted 🗑️ |
 | Tap a shape in the tray | A block drops into the middle of the play area |
 | 🧹 | Clears everything |
-| 🎯 / 🎨 | Challenges / free build. 🎯 opens a grid where you choose a theme (🧸 Toy Box or 🎃 Halloween) and what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
+| ❓ | Shows the welcome again: what challenges and free build are, and which packs there are (🎄 Christmas and 🚗 Vehicles are coming soon) |
+| 🎯 / 🎨 | Challenges / free build. The first visit opens on a welcome with a blank board; after that the game starts in challenges. 🎯 opens a grid where you choose a theme (🧸 Toy Box or 🎃 Halloween) and what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
 | 🏆 | Your score. It goes up every time you finish a build and is remembered on this device |
 | 🔊 | Sound on/off |
 
