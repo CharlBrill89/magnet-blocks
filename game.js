@@ -49,6 +49,7 @@
     card.style.top = barBottom + 4 + 'px';
     view.topReserve = barBottom + 4 + (card.classList.contains('show') ? card.offsetHeight + 4 : 0);
     view.s = Math.max(20, Math.min(view.W / VIEW_W, (view.groundY - view.topReserve) / VIEW_H));
+    $('next').style.bottom = view.trayH + GRASS + 14 + 'px';
     for (const p of state.pieces) clampToView(p);
   }
   const w2s = (x, y) => ({ x: view.W / 2 + x * view.s, y: view.groundY - y * view.s });
@@ -278,20 +279,38 @@
     $('card').classList.toggle('show', mode === 'challenge');
     if (mode === 'challenge') { state.won = false; renderCard(); openPicker(); }
     else closePicker();
+    $('next').classList.remove('show');
+    $('card').classList.remove('won');
     layout();
     afterChange();
   }
 
   // ----- choose what to build
   const doneBuilds = new Set([].concat(load('magnet-blocks-done', [])));
+  const TIER_DOT = { 1: '🟢', 2: '🟡', 3: '🔴' };
+  const current = () => G.CHALLENGES[state.challengeIdx];
+  const packOf = (id) => G.PACKS.find((p) => p.id === id);
+  const packBuilds = (id) => G.CHALLENGES.filter((c) => c.pack === id);
+  const potential = (ch) => G.challengeScore(ch, state.level, !doneBuilds.has(ch.id));
+  let pickerPack = null;
   function openPicker() {
-    $('pickGrid').innerHTML = G.CHALLENGES.map((ch, i) =>
+    pickerPack = pickerPack || current().pack;
+    $('packTabs').innerHTML = G.PACKS.map((p) => {
+      const all = packBuilds(p.id), done = all.filter((c) => doneBuilds.has(c.id)).length;
+      return `<button class="packTab${p.id === pickerPack ? ' on' : ''}" data-pack="${p.id}" role="tab" ` +
+        `aria-label="${p.name}">${p.emoji}<span>${done}/${all.length}</span></button>`;
+    }).join('');
+    for (const b of $('packTabs').children) b.addEventListener('click', () => { pickerPack = b.dataset.pack; sfx.color(); openPicker(); });
+    // The builds in this pack, easiest first, with their tier and the points they're worth.
+    $('pickGrid').innerHTML = G.CHALLENGES.map((ch, i) => ch.pack !== pickerPack ? '' :
       `<button class="pick${i === state.challengeIdx ? ' current' : ''}${doneBuilds.has(ch.id) ? ' done' : ''}" ` +
-      `data-i="${i}" aria-label="${ch.name}">${ch.emoji}<span>${ch.name}</span></button>`).join('');
+      `data-i="${i}" aria-label="${ch.name}">${ch.emoji}<span>${ch.name}</span>` +
+      `<span class="meta">${TIER_DOT[ch.tier]} ${potential(ch)}🏆</span></button>`).join('');
     for (const b of $('pickGrid').children) b.addEventListener('click', () => startChallenge(Number(b.dataset.i)));
+    $('picker').classList.toggle('halloween', pickerPack === 'halloween');
     $('picker').classList.add('show');
   }
-  function closePicker() { $('picker').classList.remove('show'); }
+  function closePicker() { $('picker').classList.remove('show'); pickerPack = null; }
   function startChallenge(i) {
     audio();
     closePicker();
@@ -299,6 +318,7 @@
     state.challengeIdx = i;
     state.won = false;
     $('card').classList.remove('won');
+    $('next').classList.remove('show');
     renderCard();
     layout();
     sfx.color();
@@ -319,12 +339,13 @@
     try { localStorage.setItem('magnet-blocks-difficulty', String(state.level)); } catch (e) { /* ignore */ }
     sfx.color();
     syncLevel();
+    if (!state.won) updateGain();
   });
   function syncLevel() {
     $('level').textContent = '⭐'.repeat(state.level);
     $('level').setAttribute('aria-label', 'Difficulty ' + state.level + ' of 2');
   }
-  $('next').addEventListener('click', () => startChallenge((state.challengeIdx + 1) % G.CHALLENGES.length));
+  $('next').addEventListener('click', () => startChallenge(G.nextChallenge(state.challengeIdx, doneBuilds)));
 
   function clearAll(silent) {
     for (const p of state.pieces) { const c = w2s(p.x, p.y); burst(c.x, c.y, 6, [p.color, '#fff'], 200); }
@@ -343,7 +364,7 @@
   function renderCard() {
     const ch = G.CHALLENGES[state.challengeIdx];
     $('cardEmoji').textContent = ch.emoji;
-    $('cardTitle').textContent = `Build a ${ch.name}!`;
+    $('cardTitle').textContent = `${TIER_DOT[ch.tier]} Build a ${ch.name}!`;
     $('chips').innerHTML = ch.need.map((r, i) =>
       `<button class="chip" data-i="${i}" aria-label="${r.n} ${r.color} ${r.shape}">` +
       `${shapeIcon(r.shape, G.COLOR_HEX[r.color])}<span class="n"></span></button>`).join('');
@@ -351,8 +372,10 @@
     for (const chip of $('chips').children) {
       chip.addEventListener('click', () => setColor(G.COLOR_HEX[ch.need[chip.dataset.i].color]));
     }
+    updateGain();
     updateCard();
   }
+  function updateGain() { $('gain').textContent = `+${potential(current())} 🏆`; }
   function updateCard() {
     if (state.mode !== 'challenge') return null;
     const ch = G.CHALLENGES[state.challengeIdx];
@@ -369,27 +392,40 @@
     const prog = updateCard();
     if (prog && prog.done && !state.won) {
       state.won = true;
-      const ch = G.CHALLENGES[state.challengeIdx];
-      const gain = G.challengeScore(ch, state.level, !doneBuilds.has(ch.id));
+      const ch = current();
+      const gain = potential(ch);
+      const packWasDone = packBuilds(ch.pack).every((c) => doneBuilds.has(c.id));
       doneBuilds.add(ch.id);
       save('magnet-blocks-done', [...doneBuilds]);
-      addScore(gain);
       $('gain').textContent = `+${gain} 🏆`;
       $('card').classList.add('won');
       sfx.success();
       confetti();
+      addScore(gain, `+${gain}`, 0);
+      // Finishing a whole themed pack for the first time: a bonus and an encore.
+      if (!packWasDone && packBuilds(ch.pack).every((c) => doneBuilds.has(c.id))) {
+        addScore(G.PACK_BONUS, `${packOf(ch.pack).emoji} +${G.PACK_BONUS}`, 1300);
+        setTimeout(() => { confetti(); sfx.success(); }, 1300);
+      }
+      const nx = G.CHALLENGES[G.nextChallenge(state.challengeIdx, doneBuilds)];
+      $('nextEmoji').textContent = nx.emoji;
+      $('next').setAttribute('aria-label', 'Next: ' + nx.name);
+      $('next').classList.add('show');
     }
   }
 
   // ----- score: a "+N" flies from the card to the 🏆 counter, which counts up
   let shownScore = state.score;
   function syncScore() { $('scoreN').textContent = String(Math.round(shownScore)); }
-  function addScore(gain) {
+  function addScore(gain, label, delay) {
     state.score += gain; state.lastGain = gain;
     save('magnet-blocks-score', state.score);
+    setTimeout(() => flyToScore(label), delay);
+  }
+  function flyToScore(label) {
     const from = $('card').getBoundingClientRect(), to = $('score').getBoundingClientRect();
     const fly = document.createElement('div');
-    fly.className = 'fly'; fly.textContent = `+${gain}`;
+    fly.className = 'fly'; fly.textContent = label;
     fly.style.left = from.left + from.width / 2 + 'px'; fly.style.top = from.top + from.height / 2 + 'px';
     document.body.appendChild(fly);
     requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -466,7 +502,9 @@
     drawBlock(poly, p.color, view.s, dragging && d.overTray && d.moved ? 0.7 : 1);
   }
 
+  const theme = () => (state.mode === 'challenge' ? current().pack : 'toybox');
   function drawBackground(now) {
+    if (theme() === 'halloween') { drawSpookyBackground(now); return; }
     const g = ctx.createLinearGradient(0, 0, 0, view.groundY);
     g.addColorStop(0, '#bde8ff'); g.addColorStop(1, '#effaff');
     ctx.fillStyle = g; ctx.fillRect(0, 0, view.W, view.H);
@@ -483,6 +521,28 @@
     // grass
     ctx.fillStyle = '#7ed957'; ctx.fillRect(0, view.groundY, view.W, view.H - view.groundY);
     ctx.fillStyle = '#5cb83d'; ctx.fillRect(0, view.groundY, view.W, 4);
+  }
+
+  // 🎃 pack: a dusk sky, a big moon, bats flitting by and pumpkins in the grass.
+  function drawSpookyBackground(now) {
+    const g = ctx.createLinearGradient(0, 0, 0, view.groundY);
+    g.addColorStop(0, '#2d1b4e'); g.addColorStop(0.65, '#7a3f8f'); g.addColorStop(1, '#f39a52');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, view.W, view.H);
+    const mr = Math.min(46, view.W * 0.08), mx = view.W * 0.85, my = view.groundY * 0.22;
+    ctx.save();
+    ctx.shadowColor = '#fff3c4'; ctx.shadowBlur = 30;
+    ctx.fillStyle = '#fff3c4'; ctx.beginPath(); ctx.arc(mx, my, mr, 0, 7); ctx.fill();
+    ctx.restore();
+    ctx.font = '26px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let i = 0; i < 3; i++) {
+      const bx = ((now / 45 + i * view.W * 0.37) % (view.W + 120)) - 60;
+      const by = view.groundY * (0.3 + i * 0.16) + Math.sin(now / 300 + i * 2) * 12;
+      ctx.fillText('🦇', bx, by);
+    }
+    ctx.fillStyle = '#3f7a3a'; ctx.fillRect(0, view.groundY, view.W, view.H - view.groundY);
+    ctx.fillStyle = '#2f5e2b'; ctx.fillRect(0, view.groundY, view.W, 4);
+    ctx.font = `${GRASS + 6}px serif`; ctx.textBaseline = 'bottom';
+    for (const fx of [0.06, 0.94]) ctx.fillText('🎃', view.W * fx, view.groundY + GRASS - 2);
   }
 
   function trayGeom() {
@@ -592,7 +652,7 @@
 
   // Small hook for the Playwright smoke test and debugging.
   window.magnetGame = {
-    state, view, w2s, s2w, setMode, rotateHandle, slots,
+    state, view, w2s, s2w, setMode, rotateHandle, slots, theme,
     trayPoint(shape) {
       const t = trayGeom();
       return { x: (G.SHAPE_ORDER.indexOf(shape) + 0.5) * t.slotW, y: t.cy };

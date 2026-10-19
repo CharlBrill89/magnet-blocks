@@ -141,8 +141,11 @@ test('challenges: wrong colours do not count', () => {
 });
 
 test('every challenge fits in the box and uses real colours', () => {
-  assert.equal(G.CHALLENGES.length, 10);
+  assert.equal(G.CHALLENGES.filter((c) => c.pack === 'toybox').length, 10);
+  assert.ok(G.CHALLENGES.filter((c) => c.pack === 'halloween').length >= 6);
+  assert.equal(new Set(G.CHALLENGES.map((c) => c.id)).size, G.CHALLENGES.length, 'ids are unique');
   for (const ch of G.CHALLENGES) {
+    assert.ok(G.PACKS.some((p) => p.id === ch.pack), ch.id + ' pack');
     const perShape = {};
     for (const r of ch.need) {
       assert.ok(G.SHAPES[r.shape], ch.id + ' ' + r.shape);
@@ -176,13 +179,48 @@ test('needs are derived from the layout', () => {
     [{ shape: 'square', color: 'red', n: 2 }, { shape: 'triangle', color: 'red', n: 1 }]);
 });
 
-test('challenge score: 10 per piece, doubled on ⭐⭐, bonus the first time', () => {
-  const rocket = G.CHALLENGES.find((c) => c.id === 'rocket'); // 5 pieces
+test('challenge score: 10 per piece × tier, doubled on ⭐⭐, bonus the first time', () => {
+  const rocket = G.CHALLENGES.find((c) => c.id === 'rocket'); // 5 pieces, easy
+  assert.equal(rocket.tier, 1);
   assert.equal(G.challengeScore(rocket, 1, false), 50);
   assert.equal(G.challengeScore(rocket, 2, false), 100);
   assert.equal(G.challengeScore(rocket, 1, true), 100);
   assert.equal(G.challengeScore(rocket, 2, true), 150);
-  // bigger builds are worth more
-  const castle = G.CHALLENGES.find((c) => c.id === 'castle'); // 7 pieces
-  assert.ok(G.challengeScore(castle, 1, false) > G.challengeScore(rocket, 1, false));
+  const horse = G.CHALLENGES.find((c) => c.id === 'horse'); // 6 pieces, hard
+  assert.equal(horse.tier, 3);
+  assert.equal(G.challengeScore(horse, 1, false), 180);
+});
+
+test('tiers: turned pieces and more kinds of shape make a build harder', () => {
+  assert.equal(G.tierOf([['square', 'red', 0, 0.5, 0], ['square', 'red', 0, 1.5, 0]]), 1);
+  assert.ok(G.complexity([['quarter', 'red', 0, 0.5, 1]]) > G.complexity([['quarter', 'red', 0, 0.5, 0]]));
+  for (const t of [1, 2, 3]) assert.ok(G.CHALLENGES.some((c) => c.tier === t && c.pack === 'toybox'), 'toybox tier ' + t);
+});
+
+test('each pack runs from easiest to hardest, and harder builds score more', () => {
+  for (const pack of G.PACKS) {
+    const path = G.CHALLENGES.filter((c) => c.pack === pack.id);
+    for (let i = 1; i < path.length; i++) {
+      assert.ok(path[i].complexity >= path[i - 1].complexity, pack.id + ' sorted');
+      assert.ok(path[i].tier >= path[i - 1].tier, pack.id + ' tiers rise');
+    }
+    const first = path[0], last = path[path.length - 1];
+    assert.ok(G.challengeScore(last, 1, false) > G.challengeScore(first, 1, false), pack.id + ' scores rise');
+  }
+  // packs are contiguous in CHALLENGES
+  const order = G.CHALLENGES.map((c) => c.pack).filter((p, i, a) => p !== a[i - 1]);
+  assert.deepEqual(order, G.PACKS.map((p) => p.id));
+});
+
+test('next goes along the pack path to the next unfinished build', () => {
+  const idx = (id) => G.CHALLENGES.findIndex((c) => c.id === id);
+  const toy = G.CHALLENGES.filter((c) => c.pack === 'toybox');
+  const first = idx(toy[0].id), second = idx(toy[1].id), third = idx(toy[2].id);
+  assert.equal(G.nextChallenge(first, new Set()), second);
+  assert.equal(G.nextChallenge(first, new Set([toy[0].id, toy[1].id])), third);   // skips finished ones
+  const lastToy = idx(toy[toy.length - 1].id);
+  assert.equal(G.nextChallenge(lastToy, new Set([toy[toy.length - 1].id])), first); // wraps within the pack
+  assert.equal(G.CHALLENGES[G.nextChallenge(lastToy, new Set())].pack, 'toybox');
+  // everything finished: just the next one along
+  assert.equal(G.nextChallenge(first, new Set(toy.map((c) => c.id))), second);
 });
