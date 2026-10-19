@@ -205,16 +205,14 @@ test('needs are derived from the layout', () => {
     [{ shape: 'square', color: 'red', n: 2 }, { shape: 'triangle', color: 'red', n: 1 }]);
 });
 
-test('challenge score: 10 per piece × tier, doubled on ⭐⭐, bonus the first time', () => {
+test('challenge score: 10 per piece × tier, bonus the first time', () => {
   const rocket = G.CHALLENGES.find((c) => c.id === 'rocket'); // 5 pieces, easy
   assert.equal(rocket.tier, 1);
-  assert.equal(G.challengeScore(rocket, 1, false), 50);
-  assert.equal(G.challengeScore(rocket, 2, false), 100);
-  assert.equal(G.challengeScore(rocket, 1, true), 100);
-  assert.equal(G.challengeScore(rocket, 2, true), 150);
+  assert.equal(G.challengeScore(rocket, false), 50);
+  assert.equal(G.challengeScore(rocket, true), 100);
   const horse = G.CHALLENGES.find((c) => c.id === 'horse'); // 6 pieces, hard
   assert.equal(horse.tier, 3);
-  assert.equal(G.challengeScore(horse, 1, false), 180);
+  assert.equal(G.challengeScore(horse, false), 180);
 });
 
 test('tiers: turned pieces and more kinds of shape make a build harder', () => {

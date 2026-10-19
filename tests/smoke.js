@@ -117,7 +117,7 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.waitForSelector('#picker.show');            // 🎯 opens the "what to build?" grid
     assert.equal(await page.locator('.pick').count(), 10); // the Toy Box pack, easiest first
     assert.equal(await page.locator('.packTab').count(), 2);
-    assert.match(await page.textContent('.pick[data-i="0"]'), /🟢/);
+    assert.match(await page.textContent('.pick[data-i="0"]'), /🟢 Easy/);
     await shot('02a-picker');
     const rocket = await idx('rocket');
     await page.click(`.pick[data-i="${rocket}"]`);
@@ -125,13 +125,10 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.waitForSelector('#card.show');
     assert.match(await page.textContent('#cardTitle'), /Rocket/);
     assert.equal(await page.locator('#chips .chip').count(), 3);
-    // starts on ⭐ (outline); go to ⭐⭐ (counts only) for this part
-    assert.equal(await page.textContent('#level'), '⭐');
+    // the grey outline of the build is always shown; there's no difficulty button
     assert.equal(await page.evaluate(() => window.magnetGame.slots().length), 5);
-    await page.click('#level');
-    assert.equal(await page.textContent('#level'), '⭐⭐');
-    assert.equal(await page.evaluate(() => window.magnetGame.slots().length), 0);
-    assert.equal(await page.textContent('#gain'), '+150 🏆');  // points on offer
+    assert.equal(await page.locator('#level').count(), 0);
+    assert.equal(await page.textContent('#gain'), '+100 🏆');  // points on offer
     await shot('02-challenge');
     const color = (hex) => page.click(`.swatch[data-color="${hex}"]`);
     // tap empty sky to deselect, so picking a colour doesn't repaint the last piece
@@ -156,10 +153,10 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     assert.equal(await page.evaluate(() => window.magnetGame.state.won), true);
     await page.waitForSelector('#next.show');               // big ➡️ showing what's next
     assert.equal(await page.textContent('#nextEmoji'), '🗼');
-    // first rocket on ⭐⭐: 5 pieces × 10 × 2 + 50 first-time bonus
-    assert.equal(await page.evaluate(() => window.magnetGame.state.score), 150);
-    assert.equal(await page.textContent('#gain'), '+150 🏆');
-    await page.waitForFunction(() => document.getElementById('scoreN').textContent === '150');
+    // first rocket: 5 pieces × 10 + 50 first-time bonus
+    assert.equal(await page.evaluate(() => window.magnetGame.state.score), 100);
+    assert.equal(await page.textContent('#gain'), '+100 🏆');
+    await page.waitForFunction(() => document.getElementById('scoreN').textContent === '100');
     await shot('03-won');
     await page.click('#next', { force: true }); // it wiggles
     assert.equal((await pieces()).length, 0);
@@ -167,9 +164,7 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     assert.equal(await page.locator('#next.show').count(), 0);
     assert.match(await page.textContent('#cardTitle'), /Tower/);
 
-    // 8b. ⭐ outline: shown behind the build, but pieces don't jump into it
-    await page.click('#level');                           // ⭐⭐ -> ⭐
-    assert.equal(await page.textContent('#level'), '⭐');
+    // 8b. the outline is shown behind the build, but pieces don't jump into it
     await pickForNext('#2fb65a');
     const sl = await page.evaluate(() => window.magnetGame.slots());
     assert.equal(sl.length, 5);                           // tower
@@ -205,7 +200,7 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     });
     await page.reload();
     await page.waitForFunction(() => window.magnetGame);
-    assert.equal(await page.textContent('#scoreN'), '150');
+    assert.equal(await page.textContent('#scoreN'), '100');
     // a returning player skips the welcome and starts in challenges
     assert.equal(await page.isVisible('#welcome'), false);
     assert.equal(await page.evaluate(() => window.magnetGame.state.mode), 'challenge');
@@ -218,7 +213,6 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await shot('06a-halloween-picker');
     await page.click(`.pick[data-i="${await idx('candycorn')}"]`);
     assert.equal(await page.evaluate(() => window.magnetGame.theme()), 'halloween');
-    assert.equal(await page.textContent('#level'), '⭐');
     assert.equal(await page.textContent('#gain'), '+70 🏆');  // easy, 2 pieces, first time
     await pickForNext('#f6b800');
     await dragFromTray('trapezoid', 0.05, 0.6);
@@ -226,8 +220,8 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await pickForNext('#ff7a1a');
     await dragFromTray('triangle', cx + 0.05, 1.6);
     assert.equal(await page.evaluate(() => window.magnetGame.state.won), true);
-    assert.equal(await page.evaluate(() => window.magnetGame.state.score), 150 + 70 + 200);
-    await page.waitForFunction(() => document.getElementById('scoreN').textContent === '420', null, { timeout: 5000 });
+    assert.equal(await page.evaluate(() => window.magnetGame.state.score), 100 + 70 + 200);
+    await page.waitForFunction(() => document.getElementById('scoreN').textContent === '370', null, { timeout: 5000 });
     await shot('06-halloween-won');
 
     // 8f. ❓ brings the welcome back

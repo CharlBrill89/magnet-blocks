@@ -16,7 +16,6 @@
     pieces: [], nextId: 1, color: G.COLORS[3].hex, selected: null,
     mode: 'free', challengeIdx: 0, won: false,
     drag: null, glow: null, particles: [], muted: false,
-    level: loadLevel(), // 1 ⭐ outline of the build, 2 ⭐⭐ counts only
     score: Number(load('magnet-blocks-score', 0)) || 0, lastGain: 0,
   };
   function load(key, fallback) {
@@ -26,12 +25,8 @@
   function save(key, value) {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* ignore */ }
   }
-  function loadLevel() {
-    try { const v = Number(localStorage.getItem('magnet-blocks-difficulty')); if (v === 1 || v === 2) return v; } catch (e) { /* private mode */ }
-    return 1;
-  }
   function slots() {
-    return state.mode === 'challenge' && state.level === 1 ? G.targetSlots(G.CHALLENGES[state.challengeIdx]) : [];
+    return state.mode === 'challenge' ? G.targetSlots(G.CHALLENGES[state.challengeIdx]) : [];
   }
   const view = { W: 0, H: 0, dpr: 1, trayH: 100, groundY: 0, s: 40, topReserve: 100 };
 
@@ -292,10 +287,11 @@
   // ----- choose what to build
   const doneBuilds = new Set([].concat(load('magnet-blocks-done', [])));
   const TIER_DOT = { 1: '🟢', 2: '🟡', 3: '🔴' };
+  const TIER_NAME = { 1: 'Easy', 2: 'Medium', 3: 'Hard' };
   const current = () => G.CHALLENGES[state.challengeIdx];
   const packOf = (id) => G.PACKS.find((p) => p.id === id);
   const packBuilds = (id) => G.CHALLENGES.filter((c) => c.pack === id);
-  const potential = (ch) => G.challengeScore(ch, state.level, !doneBuilds.has(ch.id));
+  const potential = (ch) => G.challengeScore(ch, !doneBuilds.has(ch.id));
   let pickerPack = null;
   function openPicker() {
     pickerPack = pickerPack || current().pack;
@@ -309,7 +305,7 @@
     $('pickGrid').innerHTML = G.CHALLENGES.map((ch, i) => ch.pack !== pickerPack ? '' :
       `<button class="pick${i === state.challengeIdx ? ' current' : ''}${doneBuilds.has(ch.id) ? ' done' : ''}" ` +
       `data-i="${i}" aria-label="${ch.name}">${ch.emoji}<span>${ch.name}</span>` +
-      `<span class="meta">${TIER_DOT[ch.tier]} ${potential(ch)}🏆</span></button>`).join('');
+      `<span class="meta">${TIER_DOT[ch.tier]} ${TIER_NAME[ch.tier]}</span><span class="meta">${potential(ch)} 🏆</span></button>`).join('');
     for (const b of $('pickGrid').children) b.addEventListener('click', () => startChallenge(Number(b.dataset.i)));
     $('picker').classList.toggle('halloween', pickerPack === 'halloween');
     $('picker').classList.add('show');
@@ -350,17 +346,6 @@
     $('btnSound').textContent = state.muted ? '🔇' : '🔊';
     if (!state.muted) sfx.pop();
   });
-  $('level').addEventListener('click', () => {
-    state.level = state.level % 2 + 1;
-    try { localStorage.setItem('magnet-blocks-difficulty', String(state.level)); } catch (e) { /* ignore */ }
-    sfx.color();
-    syncLevel();
-    if (!state.won) updateGain();
-  });
-  function syncLevel() {
-    $('level').textContent = '⭐'.repeat(state.level);
-    $('level').setAttribute('aria-label', 'Difficulty ' + state.level + ' of 2');
-  }
   $('next').addEventListener('click', () => startChallenge(G.nextChallenge(state.challengeIdx, doneBuilds)));
 
   function clearAll(silent) {
@@ -587,7 +572,7 @@
     });
   }
 
-  // ⭐: one plain grey outline of the build (no colours, no piece lines).
+  // One plain grey outline of the build (no colours, no piece lines).
   function drawTarget() {
     const ss = slots(); if (!ss.length) return;
     ctx.beginPath();
@@ -661,7 +646,6 @@
   window.addEventListener('orientationchange', () => setTimeout(layout, 150));
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   syncPalette();
-  syncLevel();
   syncScore();
   layout();
   // First visit: a blank board and the welcome. After that: straight into challenges.

@@ -31,13 +31,9 @@ build earns 🏆 points, and that's the only score.
 
 **Challenges 🎯:** a card says what to build, for example "Build a Rocket! 🚀". It shows
 each piece you need as a coloured shape with a count, such as 2 blue squares, 1 red
-triangle and 2 orange triangles. Tapping a shape on the card picks its colour. The ⭐ button
-on the card sets the difficulty, and the choice is remembered:
-
-| Level | Help on screen |
-| --- | --- |
-| ⭐ | A plain grey **outline** of the build, without colours or piece lines. Pieces don't jump into it, so you still have to work out which pieces fit where. |
-| ⭐⭐ | Only the card's counts. |
+triangle and 2 orange triangles. Tapping a shape on the card picks its colour. A plain grey
+**outline** of the build shows where it goes, without colours or piece lines. Pieces don't
+jump into it, so you still work out which pieces fit where.
 
 When your blocks **match the build**, with every piece in the right colour, in the right
 place and turned the right way, there's confetti and a little tune. The build can stand
@@ -69,12 +65,11 @@ counter, which counts up with a little *ding*:
 | --- | --- |
 | Each piece in the build | 10 |
 | Tier | ×1 🟢, ×2 🟡, ×3 🔴 |
-| On ⭐⭐ | ×2 |
 | First time you finish that build | +50 bonus |
 | First time you finish every build in a theme | +200 bonus, with an encore of confetti |
 
-So the Rocket (5 pieces, 🟢) is worth 50 on ⭐, or 150 the first time on ⭐⭐. The Horse
-(6 pieces, 🔴) is worth 180 on ⭐. The card shows the points on offer before you start.
+So the Rocket (5 pieces, 🟢 easy) is worth 100 the first time and 50 after that. The Horse
+(6 pieces, 🔴 hard) is worth 230 the first time and 180 after that. The card shows the points on offer before you start.
 The score and the ✅ finished builds are saved in `localStorage`, so they survive a reload.
 
 **Themes 🎃:** choosing a 🎃 Halloween build turns the sky to dusk, with a big moon,
@@ -151,7 +146,7 @@ SHOTS=out npm run test:e2e   # also saves screenshots to ./out
 The smoke test checks ground snapping, sideways and stacked magnet snapping,
 tap to select then tap again to rotate, the ↺ rotate button, choosing a build from the picker, recoloring, deleting by dragging into the tray, the broom, completing
 the rocket challenge in the right colours (including fixing a wrong-coloured piece),
-the outline on ⭐ (pieces aren't pulled into it), the score for a finished build and that it
+the outline (pieces aren't pulled into it), the score for a finished build and that it
 survives a reload, ➡️ going to the next build on the path, the 🎃 theme and its pack bonus,
 and the landscape layout. It fails on any page error.
 

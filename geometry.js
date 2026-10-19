@@ -466,15 +466,13 @@
   }
 
   // Points for finishing a build: 10 per piece, times the tier (easy ×1,
-  // medium ×2, hard ×3), doubled on ⭐⭐, plus a bonus the first time that
-  // build is ever finished.
+  // medium ×2, hard ×3), plus a bonus the first time that build is ever finished.
   const POINTS_PER_PIECE = 10;
   const FIRST_TIME_BONUS = 50;
   /** Extra points the first time every build in a pack has been finished. */
   const PACK_BONUS = 200;
-  function challengeScore(challenge, level, firstTime) {
-    return challenge.layout.length * POINTS_PER_PIECE * challenge.tier * (level === 2 ? 2 : 1) +
-      (firstTime ? FIRST_TIME_BONUS : 0);
+  function challengeScore(challenge, firstTime) {
+    return challenge.layout.length * POINTS_PER_PIECE * challenge.tier + (firstTime ? FIRST_TIME_BONUS : 0);
   }
 
   /** The build ➡️ goes to: the next unfinished one along the pack's path, else simply the next one. */
