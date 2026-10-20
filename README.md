@@ -21,9 +21,10 @@ build earns 🏆 points, and that's the only score.
 | Tap the selected block again | It turns 90° |
 | Tap the round ↺ button beside the selected block | It turns 90° again |
 | Tap a color | It recolors the selected block and colors new blocks |
-| Drag a block into the tray | It's deleted 🗑️ |
+| Drag a block onto the 🗑️ bin (it appears top-right while you drag) | It's deleted; tap the bin straight away to get it back |
+| Drop a block over the tray | It stays on the board |
 | Tap a shape in the tray | A block drops into the middle of the play area |
-| 🧹 | Clears everything |
+| Press and hold 🧹 | A ring fills around it, then everything is cleared. A quick tap does nothing. For a few seconds 🧹 turns into ↩️: tap it to get everything back |
 | ❓ | Shows the welcome again: what challenges and free build are, and which packs there are (🎄 Christmas and 🚗 Vehicles are coming soon) |
 | 🎯 / 🎨 | Challenges / free build. The first visit opens on a welcome with a blank board; after that the game starts in challenges. 🎯 opens a grid where you choose a theme (🧸 Toy Box or 🎃 Halloween) and what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
 | 🏆 | Your score. It goes up every time you finish a build and is remembered on this device |
@@ -144,11 +145,11 @@ SHOTS=out npm run test:e2e   # also saves screenshots to ./out
 ```
 
 The smoke test checks ground snapping, sideways and stacked magnet snapping,
-tap to select then tap again to rotate, the ↺ rotate button, choosing a build from the picker, recoloring, deleting by dragging into the tray, the broom, completing
+tap to select then tap again to rotate, the ↺ rotate button, choosing a build from the picker, recoloring, deleting with the bin (and not by dropping over the tray) and undoing it, a cancelled drag putting the block back, the press-and-hold broom and its undo, completing
 the rocket challenge in the right colours (including fixing a wrong-coloured piece),
 the outline (pieces aren't pulled into it), the score for a finished build and that it
 survives a reload, ➡️ going to the next build on the path, the 🎃 theme and its pack bonus,
-and the landscape layout. It fails on any page error.
+the free build surviving a challenge and a reload, and the landscape layout: every build's outline fits below the card at 375×667, 667×375 and 568×320, and the Tower is finished by dragging at 568×320. It fails on any page error.
 
 ## Roadmap
 

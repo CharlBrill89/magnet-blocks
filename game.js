@@ -12,12 +12,18 @@
   const TAP_PX = 10, TAP_MS = 500;
   const TOUCH_LIFT = 1.0;    // world units a touch-spawned piece floats above the finger
 
+  const FREE_KEY = 'magnet-blocks-free';
   const state = {
-    pieces: [], nextId: 1, color: G.COLORS[3].hex, selected: null,
+    // Each mode keeps its own board; `pieces` is always the current mode's board, so
+    // starting a challenge never wipes a free build.
+    boards: { free: [], challenge: [] }, pieces: null,
+    nextId: 1, color: G.COLORS[3].hex, selected: null,
     mode: 'free', challengeIdx: 0, won: false,
     drag: null, glow: null, particles: [], muted: false,
+    lastBinned: null, binUndoUntil: 0,
     score: Number(load('magnet-blocks-score', 0)) || 0, lastGain: 0,
   };
+  state.pieces = state.boards.free;
   function load(key, fallback) {
     try { const v = JSON.parse(localStorage.getItem(key)); if (v !== null) return v; } catch (e) { /* private mode */ }
     return fallback;
@@ -37,16 +43,27 @@
     view.H = window.innerHeight;
     canvas.width = Math.round(view.W * view.dpr);
     canvas.height = Math.round(view.H * view.dpr);
-    view.trayH = Math.max(96, Math.min(150, view.H * 0.16));
+    view.trayH = Math.max(72, Math.min(150, view.H * 0.16)); // clamp(72px, 16vh, 150px)
     view.groundY = view.H - view.trayH - GRASS;
     const card = $('card');
     const barBottom = $('bar').getBoundingClientRect().bottom;
     card.style.top = barBottom + 4 + 'px';
     view.topReserve = barBottom + 4 + (card.classList.contains('show') ? card.offsetHeight + 4 : 0);
-    view.s = Math.max(20, Math.min(view.W / VIEW_W, (view.groundY - view.topReserve) / VIEW_H));
+    // No minimum scale: on a short landscape phone a floor pushed the top of the build
+    // under the card. A challenge only needs its own height (plus headroom to lift the
+    // last piece in), so it can use a bigger scale than free build's fixed VIEW_H.
+    view.s = Math.min(view.W / VIEW_W, (view.groundY - view.topReserve) / fitHeight());
     $('next').style.bottom = view.trayH + GRASS + 14 + 'px';
     for (const p of state.pieces) clampToView(p);
   }
+  // World units of height the view must show above the ground.
+  function fitHeight() {
+    if (state.mode !== 'challenge') return VIEW_H;
+    const maxY = Math.max(0, ...slots().map((sl) => G.pieceBounds(sl).maxY));
+    return Math.max(maxY + 0.75, 3.5);
+  }
+  const compactHud = () => window.matchMedia('(max-height: 500px)').matches;
+  const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const w2s = (x, y) => ({ x: view.W / 2 + x * view.s, y: view.groundY - y * view.s });
   const s2w = (px, py) => ({ x: (px - view.W / 2) / view.s, y: (view.groundY - py) / view.s });
   const inTray = (py) => py >= view.H - view.trayH;
@@ -121,12 +138,28 @@
     state.pieces.push(p);
     return p;
   }
-  function removePiece(p) {
+  // quiet: no burst, for a tray spawn that is simply put back.
+  function removePiece(p, quiet) {
     const i = state.pieces.indexOf(p);
     if (i >= 0) state.pieces.splice(i, 1);
     if (state.selected === p) state.selected = null;
+    if (quiet) return;
     const c = w2s(p.x, p.y);
     burst(c.x, c.y, 14, [p.color, '#fff'], 220);
+  }
+  // Snapshots are the plain {shape, color, x, y, rot} of pieces. They're used to undo a bin
+  // delete or a clear, and to save the free build.
+  function snapshot(pieces) {
+    return pieces.map((p) => ({ shape: p.shape, color: p.color, x: p.x, y: p.y, rot: p.rot }));
+  }
+  // Adds the snapshotted pieces to `board` (the current board by default) with fresh ids.
+  function restore(snaps, board) {
+    const now = performance.now();
+    for (const s of snaps) {
+      if (!s || !G.SHAPES[s.shape] || typeof s.color !== 'string' || !Number.isFinite(s.x) ||
+          !Number.isFinite(s.y) || ![0, 1, 2, 3].includes(s.rot)) continue; // skip bad saved data
+      (board || state.pieces).push({ id: state.nextId++, shape: s.shape, color: s.color, x: s.x, y: s.y, rot: s.rot, pop: now });
+    }
   }
   function others(p) { return state.pieces.filter((q) => q !== p); }
   function applySnap(p) {
@@ -165,10 +198,36 @@
     return G.SHAPE_ORDER[Math.max(0, Math.min(G.SHAPE_ORDER.length - 1, Math.floor((px / view.W) * G.SHAPE_ORDER.length)))];
   }
 
+  // ---------------------------------------------------------------- trash bin
+  // A bin that appears top-right only while a block is being dragged. A block is deleted
+  // only if it rests over the bin for BIN_DWELL ms (so a fling across it does nothing),
+  // and for BIN_UNDO ms afterwards a tap on the bin brings it back.
+  const BIN_DWELL = 200, BIN_UNDO = 4000, BIN_HIT = 52, BIN_POP = 150;
+  function binGeom() {
+    const R = compactHud() ? 26 : 32;
+    return { x: view.W - 16 - R, y: view.topReserve + 16 + R, R, hit: BIN_HIT };
+  }
+  const binUndoable = (now) => !!state.lastBinned && now < state.binUndoUntil;
+  // Shown during a real drag (not a tap) and while its undo is on offer.
+  const binVisible = (now) => (state.drag && state.drag.moved) || binUndoable(now);
+  function unbin() {
+    if (!state.lastBinned) return;
+    restore([state.lastBinned]);
+    state.selected = state.pieces[state.pieces.length - 1] || null;
+    state.lastBinned = null; state.binUndoUntil = 0;
+    sfx.drop();
+    afterChange();
+  }
+
   canvas.addEventListener('pointerdown', (e) => {
     if (state.drag) return;
     audio();
     const p = pos(e);
+    const now = performance.now();
+    if (binUndoable(now)) { // checked first: the bin floats over the board for a few seconds
+      const b = binGeom();
+      if (Math.hypot(p.x - b.x, p.y - b.y) <= b.R + 14) { unbin(); return; }
+    }
     const h = rotateHandle();
     if (h && Math.hypot(p.x - h.x, p.y - h.y) <= h.r + 12) { // a little bigger than it looks, for small fingers
       rotatePiece(state.selected);
@@ -192,20 +251,46 @@
       state.selected = piece;
     }
     canvas.setPointerCapture(e.pointerId);
+    // start: where an existing block was, so a cancelled drag can put it back.
     state.drag = { id: e.pointerId, piece, offX, offY, fromTray, wasSelected, startX: p.x, startY: p.y,
-      t0: performance.now(), moved: false, overTray: fromTray, contactKey: null };
+      start: { x: piece.x, y: piece.y, rot: piece.rot },
+      t0: now, moved: false, leftTray: false, binSince: null, binArmed: false, binShownAt: 0, contactKey: null };
     if (fromTray) state.selected = piece;
-    drag(p);
+    drag(p, true);
   });
 
-  function drag(p) {
-    const d = state.drag, piece = d.piece;
-    if (Math.hypot(p.x - d.startX, p.y - d.startY) > TAP_PX) d.moved = true;
-    d.overTray = inTray(p.y);
+  // A finger resting over the bin sends no pointermove, so the dwell is also re-checked
+  // every frame and on release, not only in drag().
+  function updateBinArm(d, now) {
+    d.binArmed = d.binSince !== null && now - d.binSince >= BIN_DWELL;
+    if (d.binArmed) state.glow = null;
+    return d.binArmed;
+  }
+
+  function drag(p, initial) {
+    const d = state.drag, piece = d.piece, now = performance.now();
+    if (!d.moved && Math.hypot(p.x - d.startX, p.y - d.startY) > TAP_PX) { d.moved = true; d.binShownAt = now; }
     const w = s2w(p.x, p.y);
+    // "Left the tray" (tray spawns only) is judged on the finger plus a touch lift, not the
+    // bare finger: a block set on the ground by touch leaves the finger ~0.5
+    // units below the grass, which is already inside the tray. The drawn block can't be used
+    // either, because clampToView always keeps it above the ground.
+    // The lift is capped at half the spawn's depth into the tray, so on big screens (where a
+    // full TOUCH_LIFT reaches above the tray top) a spawn still has to really move up and out.
+    // Not judged on the pointerdown call: nothing has moved yet.
+    if (!initial && !d.leftTray) {
+      const trayTop = view.H - view.trayH;
+      const lift = Math.max(0, Math.min(d.offY * view.s, (d.startY - trayTop) / 2));
+      d.leftTray = p.y - lift < trayTop;
+    }
     piece.x = w.x + d.offX; piece.y = w.y + d.offY;
     clampToView(piece);
-    if (d.overTray && d.moved) { state.glow = null; return; }
+    // The bin hit test uses the block's centre, not the finger (TOUCH_LIFT shifts the finger).
+    const b = binGeom(), c = w2s(piece.x, piece.y);
+    if (d.moved && Math.hypot(c.x - b.x, c.y - b.y) <= b.hit) {
+      if (d.binSince === null) d.binSince = now;
+    } else d.binSince = null;
+    if (updateBinArm(d, now)) { state.glow = null; d.contactKey = null; return; } // no snapping over an armed bin
     if (d.fromTray && !d.moved) return;
     const r = applySnap(piece);
     if (r.contact) {
@@ -223,10 +308,26 @@
     const d = state.drag;
     if (!d || d.id !== e.pointerId) return;
     state.drag = null;
-    const p = pos(e), piece = d.piece;
-    if (cancelled || (d.overTray && (d.moved || !d.fromTray))) {
-      removePiece(piece); sfx.pop(); state.glow = null; afterChange(); return;
+    const piece = d.piece;
+    // Only an armed bin ever deletes a block that has been on the board. Dropping over the
+    // tray just leaves the block resting on the ground.
+    if (cancelled && !d.fromTray) { // the OS took the touch away: put the block back where it was
+      piece.x = d.start.x; piece.y = d.start.y; piece.rot = d.start.rot;
+      state.glow = null; afterChange(); return;
     }
+    if (d.fromTray && (cancelled ? !(d.moved && d.leftTray) : d.moved && !d.leftTray)) {
+      // A new block that never left the tray is quietly put back (no pop, no burst).
+      removePiece(piece, true); state.glow = null; afterChange(); return;
+    }
+    if (!cancelled && updateBinArm(d, performance.now())) {
+      state.lastBinned = snapshot([piece])[0];
+      state.binUndoUntil = performance.now() + BIN_UNDO;
+      removePiece(piece); sfx.pop();
+      const b = binGeom();
+      burst(b.x, b.y, 10, [piece.color, '#fff'], 160);
+      state.glow = null; afterChange(); return;
+    }
+    // A cancelled tray spawn that had left the tray falls through and stays where it is.
     if (d.fromTray && !d.moved) { // tap on a tray shape: drop a copy in the middle
       const mid = s2w(view.W / 2, view.groundY - (view.groundY - view.topReserve) * 0.55);
       piece.x = mid.x + (Math.random() - 0.5) * 2; piece.y = mid.y; piece.rot = 0;
@@ -273,13 +374,18 @@
   function setMode(mode) {
     audio();
     state.mode = mode;
+    state.pieces = state.boards[mode];
+    state.selected = null; state.glow = null;
+    endUndos(); // an undo belongs to the board it came from
     $('btnFree').classList.toggle('on', mode === 'free');
     $('btnChallenge').classList.toggle('on', mode === 'challenge');
     $('card').classList.toggle('show', mode === 'challenge');
-    if (mode === 'challenge') { state.won = false; renderCard(); openPicker(); }
+    // state.won is kept: the challenge board comes back as it was, and resetting it would
+    // award a finished build a second time.
+    $('next').classList.toggle('show', mode === 'challenge' && state.won);
+    $('card').classList.toggle('won', mode === 'challenge' && state.won);
+    if (mode === 'challenge') { renderCard(); openPicker(); }
     else closePicker();
-    $('next').classList.remove('show');
-    $('card').classList.remove('won');
     layout();
     afterChange();
   }
@@ -314,7 +420,8 @@
   function startChallenge(i) {
     audio();
     closePicker();
-    clearAll(true);
+    endUndos();
+    clearAll(true, state.boards.challenge); // only the challenge board; a free build is kept
     state.challengeIdx = i;
     state.won = false;
     $('card').classList.remove('won');
@@ -328,7 +435,80 @@
   $('picker').addEventListener('click', (e) => { if (e.target === $('picker')) closePicker(); });
   $('btnFree').addEventListener('click', () => setMode('free'));
   $('btnChallenge').addEventListener('click', () => setMode('challenge'));
-  $('btnClear').addEventListener('click', () => clearAll());
+
+  // ----- 🧹 press and hold to clear (a ring fills around it), then ↩️ undo in the same spot.
+  // A tap does nothing, so a stray touch can't wipe a build.
+  const HOLD_MS = 700, CLEAR_UNDO_MS = 6000;
+  const btnClear = $('btnClear');
+  const clr = { t0: 0, raf: 0, undo: null, timer: 0, swallowClick: false };
+  function setHold(k) { btnClear.style.setProperty('--hold', String(k)); btnClear.classList.toggle('holding', k > 0); }
+  function holdStart() {
+    if (clr.undo || clr.raf) return;
+    audio();
+    clr.t0 = performance.now();
+    const tick = (now) => {
+      const k = Math.min(1, (now - clr.t0) / HOLD_MS);
+      setHold(k);
+      if (k < 1) { clr.raf = requestAnimationFrame(tick); return; }
+      clr.raf = 0; setHold(0);
+      clr.swallowClick = true; // the release that follows must not hit the ↩️ that replaces 🧹
+      clearWithUndo();
+    };
+    clr.raf = requestAnimationFrame(tick);
+  }
+  function holdEnd() { // released early: nothing happens
+    if (clr.raf) { cancelAnimationFrame(clr.raf); clr.raf = 0; }
+    setHold(0);
+  }
+  function setClearButton(undo) {
+    btnClear.textContent = undo ? '↩️' : '🧹';
+    btnClear.setAttribute('aria-label', undo ? 'Undo clear' : 'Clear everything (press and hold)');
+    btnClear.title = undo ? 'Undo' : 'Press and hold to clear';
+    btnClear.classList.toggle('undo', undo);
+  }
+  function clearWithUndo() {
+    if (!state.pieces.length) return;
+    clr.undo = { board: state.pieces, snaps: snapshot(state.pieces) };
+    clearAll();
+    setClearButton(true);
+    clr.timer = setTimeout(endClearUndo, CLEAR_UNDO_MS);
+  }
+  function endClearUndo() {
+    clearTimeout(clr.timer);
+    clr.undo = null;
+    setClearButton(false);
+  }
+  function undoClear() {
+    const u = clr.undo; if (!u) return;
+    endClearUndo();
+    restore(u.snaps, u.board);
+    sfx.drop();
+    afterChange();
+  }
+  // Both undos only make sense on the board they came from.
+  function endUndos() { endClearUndo(); state.lastBinned = null; state.binUndoUntil = 0; }
+  btnClear.addEventListener('pointerdown', (e) => {
+    clr.swallowClick = false;
+    if (e.button === 0) holdStart();
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btnClear.addEventListener(ev, holdEnd);
+  btnClear.addEventListener('click', () => {
+    if (clr.swallowClick) { clr.swallowClick = false; return; }
+    if (clr.undo) undoClear();
+  });
+  // Keyboard: hold Enter or Space the same way; a press while ↩️ shows undoes.
+  btnClear.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault(); // no native click, and no auto-repeat clicks while held
+    if (e.repeat) return;
+    if (clr.undo) undoClear(); else holdStart();
+  });
+  btnClear.addEventListener('keyup', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    holdEnd(); clr.swallowClick = false;
+  });
+  setClearButton(false);
 
   // ----- welcome: shown on the first visit, and again from ❓
   $('welcomePacks').textContent = G.PACKS.map((p) => `${p.emoji} ${p.name}`).join(' · ');
@@ -357,9 +537,13 @@
   });
   $('next').addEventListener('click', () => startChallenge(G.nextChallenge(state.challengeIdx, doneBuilds)));
 
-  function clearAll(silent) {
-    for (const p of state.pieces) { const c = w2s(p.x, p.y); burst(c.x, c.y, 6, [p.color, '#fff'], 200); }
-    state.pieces.length = 0; state.selected = null; state.glow = null;
+  function clearAll(silent, board) {
+    board = board || state.pieces;
+    if (board === state.pieces) {
+      for (const p of board) { const c = w2s(p.x, p.y); burst(c.x, c.y, 6, [p.color, '#fff'], 200); }
+      state.selected = null; state.glow = null;
+    }
+    board.length = 0;
     if (!silent) sfx.pop();
     afterChange();
   }
@@ -399,6 +583,7 @@
   }
 
   function afterChange() {
+    save(FREE_KEY, snapshot(state.boards.free)); // the free build survives a reload
     const prog = updateCard();
     if (prog && prog.done && !state.won) {
       state.won = true;
@@ -499,8 +684,8 @@
   function drawPiece(p, now) {
     const d = state.drag;
     let k = popScale(p, now);
-    const dragging = d && d.piece === p;
-    if (dragging && d.overTray && d.moved) k *= 0.6;
+    const armed = d && d.piece === p && d.binArmed; // shrinks "into" the armed bin
+    if (armed) k *= 0.6;
     const poly = G.worldPolygon(p).map((v) => w2s(p.x + (v.x - p.x) * k, p.y + (v.y - p.y) * k));
     if (state.selected === p) {
       ctx.save();
@@ -509,7 +694,7 @@
       ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = view.s * 0.5; ctx.stroke();
       ctx.restore();
     }
-    drawBlock(poly, p.color, view.s, dragging && d.overTray && d.moved ? 0.7 : 1);
+    drawBlock(poly, p.color, view.s, armed ? 0.7 : 1);
   }
 
   const theme = () => (state.mode === 'challenge' ? current().pack : 'toybox');
@@ -561,18 +746,12 @@
   }
 
   function drawTray() {
-    const d = state.drag, del = d && d.overTray && d.moved;
     const t = trayGeom(), top = view.H - view.trayH;
-    ctx.fillStyle = del ? '#d9534f' : '#3b2f63';
+    ctx.fillStyle = '#3b2f63';
     ctx.beginPath(); ctx.roundRect(-10, top, view.W + 20, view.trayH + 10, 26); ctx.fill();
-    ctx.fillStyle = del ? '#e57671' : '#4d4080';
+    ctx.fillStyle = '#4d4080';
     for (let i = 0; i < t.n; i++) {
       ctx.beginPath(); ctx.roundRect(i * t.slotW + 6, top + 10, t.slotW - 12, view.trayH - 18, 18); ctx.fill();
-    }
-    if (del) {
-      ctx.font = `${Math.min(56, view.trayH * 0.5)}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('🗑️', view.W / 2, t.cy);
-      return;
     }
     G.SHAPE_ORDER.forEach((key, i) => {
       const sh = G.SHAPES[key], cx = (i + 0.5) * t.slotW;
@@ -620,6 +799,53 @@
     ctx.restore();
   }
 
+  // The bin: a white disc with a purple bin; armed, it grows, turns red and opens its lid.
+  function drawBin(now) {
+    if (!binVisible(now)) return;
+    const d = state.drag, b = binGeom(), still = reducedMotion();
+    if (d) updateBinArm(d, now);
+    const armed = !!(d && d.binArmed);
+    // Pops in when a drag starts; after a delete it simply stays, showing the ↩️ badge.
+    const pop = still || !d ? 1 : Math.min(1, (now - d.binShownAt) / BIN_POP);
+    const grow = 1 - (1 - pop) * (1 - pop); // ease-out pop-in
+    const k = grow * (armed ? 1.2 : 1);
+    if (k <= 0.01) return;
+    // How far the lid is open (0..1): animated over ~120ms, or snapped open for reduced motion.
+    const lid = !armed ? 0 : still ? 1 : Math.min(1, (now - d.binSince - BIN_DWELL) / 120);
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.scale(k, k);
+    if (armed && !still) ctx.rotate(Math.sin(now / 60) * 0.08); // wiggle
+    const R = b.R, ink = armed ? '#fff' : '#3b2f63';
+    ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+    ctx.fillStyle = armed ? '#d9534f' : '#fff';
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowColor = 'transparent';
+    // can
+    const u = R / 32;
+    ctx.fillStyle = ink; ctx.strokeStyle = ink; ctx.lineWidth = 3 * u; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-11 * u, -6 * u); ctx.lineTo(11 * u, -6 * u); ctx.lineTo(8.5 * u, 15 * u); ctx.lineTo(-8.5 * u, 15 * u);
+    ctx.closePath(); ctx.stroke();
+    for (const x of [-4.5, 0, 4.5]) { ctx.beginPath(); ctx.moveTo(x * u, -1 * u); ctx.lineTo(x * 0.8 * u, 10 * u); ctx.stroke(); }
+    // lid, hinged at its right end
+    ctx.save();
+    ctx.translate(13 * u, -10 * u); ctx.rotate(-lid * 0.9);
+    ctx.fillRect(-26 * u, -1.5 * u, 26 * u, 3 * u);
+    ctx.fillRect(-16 * u, -5 * u, 6 * u, 4 * u);
+    ctx.restore();
+    ctx.restore();
+    if (!d && binUndoable(now)) { // ↩️ badge: tap the bin to get the block back
+      const bx = b.x - b.R * 0.75, by = b.y + b.R * 0.75, br = Math.max(13, b.R * 0.48);
+      ctx.save();
+      ctx.fillStyle = '#ffe27a'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.font = `${Math.round(br * 1.25)}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('↩️', bx, by + 1);
+      ctx.restore();
+    }
+  }
+
   function drawParticles(dt) {
     const ps = state.particles;
     for (let i = ps.length - 1; i >= 0; i--) {
@@ -644,6 +870,7 @@
     for (const p of state.pieces) if (p !== held) drawPiece(p, now);
     drawGlow(now);
     drawTray();
+    drawBin(now);
     if (held) drawPiece(held, now);
     drawRotateHandle(now);
     drawParticles(dt);
@@ -656,6 +883,7 @@
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   syncPalette();
   syncScore();
+  { const saved = load(FREE_KEY, []); if (Array.isArray(saved)) restore(saved, state.boards.free); }
   layout();
   // First visit: a blank board and the welcome. After that: straight into challenges.
   if (load('magnet-blocks-welcomed', false)) { modeChosen = true; setMode('challenge'); } else showWelcome();
@@ -664,6 +892,7 @@
   // Small hook for the Playwright smoke test and debugging.
   window.magnetGame = {
     state, view, w2s, s2w, setMode, rotateHandle, slots, theme,
+    binPoint() { const b = binGeom(); return { x: b.x, y: b.y }; },
     trayPoint(shape) {
       const t = trayGeom();
       return { x: (G.SHAPE_ORDER.indexOf(shape) + 0.5) * t.slotW, y: t.cy };

@@ -24,6 +24,16 @@
     background: #fff; box-shadow: 0 3px 0 rgba(0,0,0,.18); transition: transform .08s; padding: 0; }
   .tool:active { transform: translateY(2px) scale(.96); box-shadow: 0 1px 0 rgba(0,0,0,.18); }
   .tool.on { background: #ffe27a; outline: 3px solid #fff; }
+  /* 🧹 is press-and-hold: a ring fills around the button while it's held. */
+  #btnClear { position: relative; }
+  #btnClear::after { content: ''; position: absolute; inset: -5px; padding: 4px; border-radius: 21px;
+    pointer-events: none; opacity: 0;
+    background: conic-gradient(#8e4fd0 calc(var(--hold, 0) * 1turn), rgba(255,255,255,.7) 0);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; }
+  #btnClear.holding::after { opacity: 1; }
+  #btnClear.undo { background: #ffe27a; }
+  #btnClear:focus-visible { outline: 3px solid #3b2f63; outline-offset: 3px; }
   #palette { display: flex; gap: 4px; order: 3; width: 100%; justify-content: center;
     padding: 4px; background: rgba(255,255,255,.7); border-radius: 22px; }
   .swatch { width: 42px; height: 42px; border-radius: 50%; border: 3px solid #fff; padding: 0;
@@ -57,6 +67,23 @@
   #card h1 { flex: 1; }
   @media (max-width: 639px) {
     #chips { order: 3; flex-basis: 100%; justify-content: center; }
+  }
+  /* Short screens (landscape phones): one-row top bar and a one-row card, so the build
+     keeps enough height to be seen and finished. */
+  @media (max-height: 500px) {
+    :root { --btn: 40px; }
+    #bar { flex-wrap: nowrap; gap: 4px 6px; padding-top: calc(env(safe-area-inset-top) + 4px); padding-bottom: 4px; }
+    .group { gap: 4px; }
+    .tool { font-size: 22px; border-radius: 13px; }
+    #score { font-size: 18px; padding: 0 8px 0 6px; }
+    #palette { order: 0; width: auto; gap: 2px; padding: 3px; }
+    .swatch { width: 30px; height: 30px; border-width: 2px; }
+    #card { flex-wrap: nowrap; height: 56px; padding: 6px 10px; gap: 8px; }
+    #card .big { font-size: 30px; }
+    #cardTitle, #gain { display: none; }
+    #chips { order: 0; flex: 1; flex-basis: auto; flex-wrap: nowrap; justify-content: center; gap: 6px; }
+    .chip { min-height: 44px; padding: 2px 6px; }
+    .chip svg { width: 24px; height: 24px; }
   }
   #cardEmoji { background: #fff; border-radius: 16px; padding: 4px 6px; position: relative;
     box-shadow: 0 3px 0 rgba(0,0,0,.15); }
@@ -129,7 +156,7 @@
   <div id="palette" role="group" aria-label="Colors"></div>
   <div class="group">
     <button id="btnHelp" class="tool" aria-label="About the game" title="About the game">❓</button>
-    <button id="btnClear" class="tool" aria-label="Clear everything" title="Clear">🧹</button>
+    <button id="btnClear" class="tool" aria-label="Clear everything (press and hold)" title="Press and hold to clear">🧹</button>
     <button id="btnSound" class="tool" aria-label="Sound on/off" title="Sound">🔊</button>
   </div>
 </div>

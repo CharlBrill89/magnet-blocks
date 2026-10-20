@@ -99,18 +99,94 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     ps = await pieces();
     assert.equal(ps[2].color, '#e5393b');
 
-    // 6. dragging a piece into the tray deletes it
-    const t = await tray('arch');
-    const p0 = await toScreen(ps[2].x, ps[2].y);
-    await page.mouse.move(p0.x, p0.y);
-    await page.mouse.down();
-    await page.mouse.move(t.x, t.y, { steps: 10 });
-    await page.mouse.up();
-    assert.equal((await pieces()).length, 2);
+    // 6. deleting is only ever done with the bin, which appears top-right while dragging
+    const fields = (p) => ({ shape: p.shape, color: p.color, x: p.x, y: p.y, rot: p.rot });
+    const binPoint = () => page.evaluate(() => window.magnetGame.binPoint());
+    // drag the piece with this id from its centre to screen point b, hold for `wait` ms, release
+    async function dragPieceTo(id, b, wait) {
+      const q = (await pieces()).find((p) => p.id === id);
+      const a = await toScreen(q.x, q.y);
+      await page.mouse.move(a.x, a.y);
+      await page.mouse.down();
+      await page.mouse.move(b.x, b.y, { steps: 10 });
+      if (wait) await page.waitForTimeout(wait);
+      await page.mouse.up();
+    }
+    // 6a. rest a block on the bin for 250ms and let go: it's deleted
+    await dragPieceTo(ps[2].id, await binPoint(), 250);
+    assert.equal((await pieces()).length, 2, 'an armed bin deletes the block');
+    // 6b. tap the bin straight away: the block comes back exactly as it was
+    const binned = await page.evaluate(() => ({ ...window.magnetGame.state.lastBinned }));
+    assert.equal(binned.shape, 'triangle');
+    const bp = await binPoint();
+    await page.mouse.click(bp.x, bp.y);
+    ps = await pieces();
+    assert.equal(ps.length, 3, 'tapping the bin undoes the delete');
+    assert.deepEqual(fields(ps[2]), binned);
+    assert.equal(ps[2].color, '#e5393b');
+    // 6c. dropping a board block over the tray leaves it resting on the ground
+    const sqId = ps[0].id;
+    await dragPieceTo(sqId, await tray('arch'));
+    ps = await pieces();
+    assert.equal(ps.length, 3, 'dropping over the tray never deletes');
+    near(ps.find((p) => p.id === sqId).y, 0.5);                // resting on the ground
+    // 6d. touch: set a new block on the ground, which leaves the finger 0.5 units into the grass/tray
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    const ta = await tray('square'), tb = await toScreen(0, -0.5);
+    assert.ok(tb.y >= await page.evaluate(() => window.innerHeight - window.magnetGame.view.trayH),
+      'the finger really ends up inside the tray');
+    const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+    await touch('touchStart', ta.x, ta.y);
+    for (let i = 1; i <= 8; i++) await touch('touchMove', ta.x + (tb.x - ta.x) * i / 8, ta.y + (tb.y - ta.y) * i / 8);
+    await touch('touchEnd');
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+    ps = await pieces();
+    assert.equal(ps.length, 4, 'a block set on the ground by touch stays');
+    near(ps[3].y, 0.5);
+    // 6e. flinging a block across the bin (under 100ms over it) doesn't delete it
+    await dragPieceTo(ps[3].id, await binPoint());
+    assert.equal((await pieces()).length, 4, 'no dwell, no delete');
 
-    // 7. broom clears
+    // 6f. a cancelled drag (the OS takes the touch away) puts the block back where it was
+    ps = await pieces();
+    const before = fields(ps[1]), cancelId = ps[1].id;
+    const c1 = await toScreen(ps[1].x, ps[1].y);
+    await page.mouse.move(c1.x, c1.y);
+    await page.mouse.down();
+    await page.mouse.move(c1.x - 120, c1.y - 150, { steps: 6 });
+    await page.evaluate(() => {
+      const id = window.magnetGame.state.drag.id;
+      document.getElementById('stage').dispatchEvent(new PointerEvent('pointercancel', { pointerId: id, bubbles: true }));
+    });
+    await page.mouse.up();
+    ps = await pieces();
+    assert.equal(ps.length, 4, 'pointercancel never deletes');
+    assert.deepEqual(fields(ps.find((p) => p.id === cancelId)), before);
+    await shot('01c-bin');
+
+    // 7. 🧹 is press-and-hold: a tap does nothing, a hold clears, ↩️ brings everything back
+    const all = (await pieces()).map(fields);
     await page.click('#btnClear');
+    assert.equal((await pieces()).length, 4, 'a tap on 🧹 clears nothing');
+    const holdClear = async () => {
+      await page.hover('#btnClear');
+      await page.mouse.down();
+      await page.waitForTimeout(800);
+      await page.mouse.up();
+    };
+    await holdClear();
+    assert.equal((await pieces()).length, 0, 'holding 🧹 clears');
+    assert.equal(await page.textContent('#btnClear'), '↩️');
+    await page.click('#btnClear');                         // undo
+    assert.deepEqual((await pieces()).map(fields), all, 'undo restores every piece');
+    assert.equal(await page.textContent('#btnClear'), '🧹');
+    await holdClear();
     assert.equal((await pieces()).length, 0);
+
+    // 7b. the free build is kept when you go to a challenge (it has its own board)
+    await dragFromTray('square', -3, 0.6);
+    const freeBlock = fields((await pieces())[0]);
 
     // 8. the rocket: red nose, 2 blue squares, 2 orange fins
     await page.click('#btnChallenge');
@@ -124,6 +200,9 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.waitForSelector('#picker', { state: 'hidden' });
     await page.waitForSelector('#card.show');
     assert.match(await page.textContent('#cardTitle'), /Rocket/);
+    assert.equal((await pieces()).length, 0, 'the challenge starts on its own empty board');
+    assert.deepEqual(await page.evaluate(() => window.magnetGame.state.boards.free.map((p) => ({ ...p })))
+      .then((b) => b.map(fields)), [freeBlock], 'starting a challenge keeps the free build');
     assert.equal(await page.locator('#chips .chip').count(), 3);
     // the grey outline of the build is always shown; there's no difficulty button
     assert.equal(await page.evaluate(() => window.magnetGame.slots().length), 5);
@@ -173,7 +252,7 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     ps = await pieces();
     near(ps[0].x, top.x + 0.4); near(ps[0].y, top.y + 0.3);  // stays where it was dropped
     assert.equal(ps[0].color, '#2fb65a');                 // and keeps its colour
-    await page.click('#btnClear');
+    await holdClear();
     await page.waitForTimeout(300);
     await shot('05-outline');
 
@@ -237,14 +316,78 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.waitForSelector('#welcome', { state: 'hidden' });
     assert.equal(await page.evaluate(() => window.magnetGame.state.mode), 'challenge');
 
-    // 9. landscape layout still fits: ground is visible and snapping works
+    // 9. landscape layout still fits: ground is visible and snapping works.
+    // The free build from 7b is still there after the challenges and the reload.
     await page.setViewportSize({ width: 900, height: 480 });
     await page.click('#btnFree');
     assert.equal(await page.evaluate(() => window.magnetGame.theme()), 'toybox');
+    ps = await pieces();
+    assert.equal(ps.length, 1, 'the free build survives challenges and a reload');
+    assert.equal(ps[0].shape, freeBlock.shape); assert.equal(ps[0].color, freeBlock.color);
+    near(ps[0].y, freeBlock.y);
     await dragFromTray('arch', 0, 0.7);
     ps = await pieces();
-    near(ps[0].y, 0.5);
+    near(ps[1].y, 0.5);
     await shot('04-landscape');
+
+    // 9b. bigger screens, where a full touch lift reaches above the tray: a touch spawn dragged
+    // sideways inside the tray (or cancelled there) is quietly put back, not left on the board
+    for (const [w, hgt] of [[900, 480], [768, 1024]]) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await page.waitForTimeout(100);
+      const n = (await pieces()).length;
+      const a = await tray('triangle'), b = await tray('trapezoid');
+      await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+      for (const end of ['touchEnd', 'touchCancel']) {
+        await touch('touchStart', a.x, a.y);
+        for (let i = 1; i <= 6; i++) await touch('touchMove', a.x + (b.x - a.x) * i / 6, a.y);
+        await cdp.send('Input.dispatchTouchEvent', { type: end, touchPoints: [] });
+        assert.equal((await pieces()).length, n, `a touch spawn kept in the tray (${end}) is put back at ${w}x${hgt}`);
+      }
+      await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+    }
+
+    // 10. short screens: every build's whole outline is visible below the card, and the bar fits
+    const choose = async (i) => {
+      if (!(await page.isVisible('#picker'))) await page.click('#cardEmoji');
+      const pack = await page.evaluate((i) => window.MagnetGeometry.CHALLENGES[i].pack, i);
+      await page.click(`.packTab[data-pack="${pack}"]`);
+      await page.click(`.pick[data-i="${i}"]`);
+      await page.waitForSelector('#picker', { state: 'hidden' });
+    };
+    const nBuilds = await page.evaluate(() => window.MagnetGeometry.CHALLENGES.length);
+    for (const [w, hgt] of [[375, 667], [667, 375], [568, 320]]) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await page.click('#btnChallenge');
+      for (let i = 0; i < nBuilds; i++) {
+        await choose(i);
+        const m = await page.evaluate(() => {
+          const g = window.magnetGame, G = window.MagnetGeometry;
+          let top = Infinity, l = Infinity, r = -Infinity;
+          for (const sl of g.slots()) for (const v of G.worldPolygon(sl)) {
+            const q = g.w2s(v.x, v.y); top = Math.min(top, q.y); l = Math.min(l, q.x); r = Math.max(r, q.x);
+          }
+          const bar = document.getElementById('bar');
+          return { top, l, r, card: document.getElementById('card').getBoundingClientRect().bottom,
+            overflow: bar.scrollWidth > bar.clientWidth, name: G.CHALLENGES[g.state.challengeIdx].name };
+        });
+        assert.ok(m.top >= m.card && m.l >= 0 && m.r <= w && !m.overflow, `${m.name} fits at ${w}x${hgt}: ${JSON.stringify(m)}`);
+      }
+    }
+
+    // 11. finish the Tower by dragging, on a small landscape phone
+    await page.setViewportSize({ width: 568, height: 320 });
+    await choose(await idx('tower'));
+    await shot('07-tower-568x320');
+    const deselect = async () => { const s = await toScreen(-6, 1); await page.mouse.click(s.x, s.y); };
+    const swatch = async (hex) => { await deselect(); await color(hex); };
+    const towerSlots = await page.evaluate(() => window.magnetGame.slots());
+    for (const sl of towerSlots) {
+      await swatch(sl.color);
+      await dragFromTray(sl.shape, sl.x + 0.06, sl.y + 0.12);
+    }
+    assert.equal(await page.evaluate(() => window.magnetGame.state.won), true, 'Tower finished at 568x320');
+    await shot('08-tower-won-568x320');
 
     assert.deepEqual(errors, []);
     console.log('smoke test passed');
