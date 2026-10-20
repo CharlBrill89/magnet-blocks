@@ -255,6 +255,11 @@ test('gifts: ascending, unique, and the first and last are reachable', () => {
   assert.ok(G.GIFTS.at(-1).at <= total, `last gift ${G.GIFTS.at(-1).at} <= ${total}`);
 });
 
+test('themed packs keep their own scene; the Toy Box takes the chosen sky', () => {
+  assert.equal(G.PACKS.find((p) => p.id === 'halloween').themed, true);
+  assert.ok(!G.PACKS.find((p) => p.id === 'toybox').themed);
+});
+
 test('gift milestones at the boundaries', () => {
   const last = G.GIFTS.at(-1).at;
   assert.deepEqual(G.milestonesReached(0), []);

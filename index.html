@@ -161,14 +161,21 @@
   #gifts { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
     background: rgba(59,47,99,.55); padding: 16px; z-index: 10; }
   #gifts.show { display: flex; }
+  /* scrolls on short screens (margin: auto keeps the panel centred when it fits) */
+  #gifts { overflow-y: auto; align-items: normal; padding-top: 26px; }
+  #gifts .panel { margin: auto; }
+  #giftsTitle { margin: 0 44px 0 0; font-size: 22px; color: #3b2f63; }
+  .shelfCaption { margin: 0 0 10px; }
   #gifts .panel { position: relative; background: #fff; border-radius: 28px; padding: 14px 18px 18px;
     max-width: 560px; width: 100%; box-shadow: 0 6px 0 rgba(0,0,0,.2); }
-  .shelfHead { display: flex; align-items: center; gap: 12px; margin: 0 44px 12px 0; }
-  #shelfScore { font-size: 24px; font-weight: 700; color: #3b2f63; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #shelfBar { position: relative; flex: 1; height: 12px; border-radius: 6px; background: rgba(59,47,99,.25); margin-right: 14px; }
+  .shelfHead { margin: 0 0 12px; }
+  .shelfNums { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px;
+    font-weight: 700; color: #3b2f63; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #shelfScore { font-size: 24px; }
+  #shelfTarget { font-size: 20px; color: #6b6190; }
+  #shelfBar { height: 12px; border-radius: 6px; background: rgba(59,47,99,.25); }
   #shelfBar[hidden] { display: none; }
   #shelfBar i { display: block; height: 100%; border-radius: 6px; background: #8e4fd0; }
-  #shelfBar span { position: absolute; right: -14px; top: 50%; transform: translateY(-50%); font-size: 22px; line-height: 1; }
   .rowHead { display: flex; align-items: center; gap: 10px; margin: 4px 0 8px; }
   .rowChip { flex: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center;
     justify-content: center; font-size: 28px; line-height: 1; border: 2px solid; }
@@ -183,14 +190,16 @@
   .tile.on { outline: 4px solid #ffd23f; outline-offset: 0; }
   .tile.on:focus-visible { outline: 4px solid #ffd23f; box-shadow: 0 0 0 7px #3b2f63; }
   .tile:active { transform: scale(.95); }
-  .tile.wrapped { background: repeating-linear-gradient(45deg, #efe9ff 0 10px, #e2d8ff 10px 20px); }
+  .tile.wrapped { background: repeating-linear-gradient(45deg, #efe9ff 0 10px, #e2d8ff 10px 20px); font-size: 36px; padding-top: 4px; }
+  .tileNum { position: absolute; top: 6px; left: 0; right: 0; font-size: 15px; font-weight: 700; color: #3b2f63;
+    text-align: center; font-variant-numeric: tabular-nums; }
   .tile.wiggle { animation: wobble .5s; }
-  /* the next gift's progress, inside its wrapped tile (no number) */
+  /* the next gift's progress, inside its wrapped tile */
   .tileBar { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 10px; border-radius: 5px;
     background: rgba(59,47,99,.25); }
   .tileBar i { display: block; height: 100%; border-radius: 5px; background: #8e4fd0; }
   .tile.wiggle .tileBar { animation: barPulse .4s; }
-  /* a sky picked in a challenge: 🎨 shows where it will appear */
+  /* a sky picked in a themed-pack challenge: 🎨 shows where it will appear */
   #btnFree.nudge { animation: wiggle .45s 2; }
   .thumb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 36px; }
   .thumb.big { position: relative; width: 140px; height: 140px; border-radius: 28px; font-size: 64px;
@@ -217,6 +226,9 @@
   #giftEmoji { font-size: 56px; line-height: 1; }
   #giftName { font-size: 20px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); max-width: 90vw; text-align: center; }
   /* For grown-ups, in the ❓ panel */
+  .prizesBtn { display: block; margin: 14px auto 0; min-height: 48px; padding: 8px 18px; border-radius: 18px;
+    background: #fff6c9; color: #3b2f63; font-size: 16px; font-weight: 700; box-shadow: 0 3px 0 rgba(0,0,0,.12); }
+  .prizesBtn:focus-visible { outline: 3px solid #3b2f63; outline-offset: 3px; }
   #howPoints { margin-top: 12px; text-align: left; font-size: 15px; color: #6b6190; line-height: 1.45; }
   #howPoints summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; justify-content: center;
     gap: 6px; font-weight: 700; border-radius: 12px; list-style-position: inside; }
@@ -314,12 +326,7 @@
     <p class="packs"><b>Packs</b><span id="welcomePacks"></span></p>
     <p class="packs soon"><b>Coming soon</b>🎄 Christmas · 🚗 Vehicles</p>
     <!-- For grown-ups: behind a text confirmation, so a pre-reader can't wipe progress -->
-    <details id="howPoints">
-      <summary>For grown-ups: how 🏆 points work</summary>
-      <p>Every finished build earns points: 10 per piece, more for 🟡/🔴 builds, +50 the first time, +200 for finishing a whole pack. Replays still score. Points unlock surprise 🎁 gifts. Kids just see a filling bar, never a number to chase.</p>
-      <table id="howGifts"></table>
-      <p id="howNow"></p>
-    </details>
+    <button id="welcomePrizes" class="prizesBtn">🏆 Prizes, backgrounds &amp; points</button>
     <button id="resetOpen" class="textBtn">Reset progress…</button>
     <button id="welcomeClose" class="tool" aria-label="Close">✖️</button>
   </div>
@@ -335,18 +342,26 @@
   </div>
 </div>
 
-<!-- 🏆 opens the gift shelf: skies for free build and looks for the blocks -->
-<div id="gifts" role="dialog" aria-modal="true" aria-label="Gifts">
+<!-- 🏆 opens the prizes shelf: skies, block looks, and (for grown-ups) how points work -->
+<div id="gifts" role="dialog" aria-modal="true" aria-labelledby="giftsTitle">
   <div class="panel">
+    <h2 id="giftsTitle">Your prizes</h2>
+    <div class="caption shelfCaption">Tap one to use it</div>
     <div class="shelfHead">
-      <span id="shelfScore"></span>
-      <div id="shelfBar" role="progressbar" aria-label="Next gift" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="shelfFill"></i><span aria-hidden="true">🎁</span></div>
+      <div class="shelfNums"><span id="shelfScore"></span><span id="shelfTarget"></span></div>
+      <div id="shelfBar" role="progressbar" aria-label="Next gift" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="shelfFill"></i></div>
     </div>
     <div class="rowHead"><span class="rowChip sky" aria-hidden="true">☁️</span>
-      <div><div class="rowLabel">Skies</div><div class="caption">Shows in 🎨 free build</div></div></div>
+      <div><div class="rowLabel">Skies</div><div class="caption" id="skyCaption"></div></div></div>
     <div id="skyTiles" class="tiles" role="group" aria-label="Skies"></div>
     <div class="rowHead"><span class="rowChip blocks" aria-hidden="true">🧱</span><div class="rowLabel">Block looks</div></div>
     <div id="skinTiles" class="tiles" role="group" aria-label="Block looks"></div>
+    <details id="howPoints">
+      <summary>For grown-ups: how 🏆 points work</summary>
+      <p>Every finished build earns points: 10 per piece, more for 🟡/🔴 builds, +50 the first time, +200 for finishing a whole pack. Replays still score. Points unlock surprise 🎁 gifts. Kids see a filling bar and the next total to aim for, but never a "points to go" countdown.</p>
+      <table id="howGifts"></table>
+      <p id="howNow"></p>
+    </details>
     <button id="giftsClose" class="tool" aria-label="Close">✖️</button>
   </div>
 </div>

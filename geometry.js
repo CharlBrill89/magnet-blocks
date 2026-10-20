@@ -94,13 +94,15 @@
     { name: 'teal', hex: '#17b5b0' },
   ];
 
-  // Builds come in themed packs. Each is drawn as a target layout:
+  // Builds come in packs. A `themed` pack always shows its own scene (🎃 dusk for Halloween);
+  // the others show the sky chosen on the 🏆 shelf, like free build.
+  // Each build is drawn as a target layout:
   // [shape, colour, x, y, rot] with (x, y) the piece centre, ground at y = 0.
   // The required counts (`need`) are derived from the layout, and per shape
   // they never exceed the pieces in the box.
   const PACKS = [
     { id: 'toybox', emoji: '🧸', name: 'Toy Box' },       // the 10 builds pictured on the box
-    { id: 'halloween', emoji: '🎃', name: 'Halloween' },
+    { id: 'halloween', emoji: '🎃', name: 'Halloween', themed: true },
   ];
   const BUILDS = [
     { id: 'rocket', pack: 'toybox', emoji: '🚀', name: 'Rocket', layout: [

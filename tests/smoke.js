@@ -502,7 +502,7 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
       await page.waitForTimeout(500);                       // let the 🎁 pop in from nothing
       await page.click('#giftBox', { force: true });       // it wobbles
       await page.waitForSelector('#gift.opened');
-      assert.equal(await page.textContent('#giftName'), name === 'Night sky' ? 'Night sky · in 🎨 free build' : name);
+      assert.equal(await page.textContent('#giftName'), name === 'Night sky' ? 'Night sky · in 🎨 free build and 🧸 builds' : name);
       await page.click('#giftShow');
       // closed (the next one follows 300ms later, so don't wait for the overlay to stay hidden)
       await page.waitForFunction(() => !document.getElementById('gift').classList.contains('opened'));
@@ -510,7 +510,7 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.waitForSelector('#gift', { state: 'hidden' });
     assert.deepEqual(await gifts().then((g) => [g.unlocked, g.scene, g.skin]), [['sparkle', 'night'], 'night', 'sparkle']);
 
-    // 12c. the 🏆 shelf: picking 🌙 sets the free-build sky; challenges keep their pack theme
+    // 12c. the 🏆 shelf: picking 🌙 sets the sky for free build and 🧸 builds; themed packs keep their own
     await page.click('#score');
     await page.waitForSelector('#gifts.show');
     assert.equal(await page.locator('#skyTiles .tile').count(), 3, '☀️, 🌙 and the wrapped 🎁 (the next gift, 🌊, is a sky)');
@@ -548,7 +548,12 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.click('#btnChallenge');
     await page.click('#pickClose');
     assert.equal(await page.evaluate(() => window.magnetGame.theme()), 'toybox');
-    assert.equal(await page.evaluate(() => window.magnetGame.sky()), 'toybox', 'challenges keep their pack theme');
+    assert.equal(await page.evaluate(() => window.magnetGame.sky()), 'night', 'a 🧸 Toy Box challenge shows the chosen sky');
+    await page.click('#cardEmoji');
+    await pickBuild('candycorn');
+    assert.equal(await page.evaluate(() => window.magnetGame.sky()), 'halloween', 'a themed pack ignores the chosen sky');
+    await page.click('#cardEmoji');
+    await pickBuild('bridge');                              // back to the Toy Box for the rest of the walk-through
 
     // 12d. a reload keeps the gifts and the choices; losing the gifts key loses no gift
     await page.reload();
@@ -671,7 +676,7 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     await page.waitForSelector('#gifts.show');
     assert.equal(await page.locator('#skinTiles .tile[data-id="sparkle"]').count(), 0, 'no ✨ tile before its celebration');
     assert.equal(await page.isVisible('#giftDot'), false, 'and no dot for it');
-    await tabStaysIn('#gifts');
+    // (Tab inside the shelf is checked in step 13: here the celebration may close it at any moment.)
     await page.waitForSelector('#gift.show', { timeout: 5000 });
     assert.equal(await page.isVisible('#gifts'), false, 'the shelf closes before the overlay opens');
     await tabStaysIn('#gift');
@@ -768,72 +773,162 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     assert.equal(await page.textContent('#scoreN'), '0');
     await page.context().close();
 
-    // 13. the shelf and the scoring explained (UI review). Exactly one wrapped 🎁, in the row of the
-    // next gift and none once all are found; no digits on the shelf but the header score.
+    // 13. the prizes shelf: a title, "🏆 300 → 🎁 600" over a bar, exactly one wrapped 🎁 (showing its
+    // target) in the row of the next gift and none once all are found, and the grown-ups section at the bottom.
     const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth &&
       ['welcome', 'gifts', 'reset'].every((id) => { const el = document.getElementById(id); return el.scrollWidth <= el.clientWidth; }));
+    const grownUps = async (now) => {
+      assert.equal(await page.locator('#gifts #howPoints').count(), 1, 'the grown-ups section is on the shelf');
+      assert.equal(await page.locator('#welcome #howPoints').count(), 0, 'and not in ❓');
+      assert.equal(await page.evaluate(() => document.getElementById('howPoints').open), false, 'closed by default');
+      assert.equal(await page.locator('#howGifts tr').count(), 6);
+      assert.equal(await page.textContent('#howNow'), now);
+    };
     for (const [score, row, label] of [[30, 'skinTiles', 'a surprise block look'], [60, 'skyTiles', 'a surprise sky'],
       [300, 'skyTiles', 'a surprise sky'], [3000, null]]) {
       page = await fresh({ 'magnet-blocks-welcomed': true, 'magnet-blocks-score': score });
       await page.click('#pickClose');
       await page.click('#score');
       await page.waitForSelector('#gifts.show');
+      assert.ok(await page.getByText('Your prizes', { exact: true }).isVisible(), 'the shelf has a title');
+      assert.ok(await page.getByText('Tap one to use it', { exact: true }).isVisible());
       assert.equal(await page.locator('#gifts .tile.wrapped').count(), row ? 1 : 0, `wrapped tiles at ${score}`);
+      const to = await page.evaluate((s) => { const m = window.MagnetGeometry.nextMilestone(s); return m && m.to; }, score);
       if (row) {
         assert.equal(await page.locator(`#${row} .tile.wrapped`).count(), 1, `in ${row} at ${score}`);
-        assert.equal(await page.getAttribute('.tile.wrapped', 'aria-label'), 'Next gift: ' + label);
+        assert.equal(await page.getAttribute('.tile.wrapped', 'aria-label'), `Next gift at ${to}: ${label}`);
+        assert.equal(await page.textContent('.tile.wrapped .tileNum'), String(to), 'the wrapped tile shows its target');
         const k = await page.evaluate((s) => window.MagnetGeometry.nextMilestone(s).k, score);
         const w = await page.evaluate(() => { const b = document.querySelector('.tile.wrapped .tileBar');
           return b.querySelector('i').getBoundingClientRect().width / b.getBoundingClientRect().width; });
         near(w, k, 0.02);
       }
       assert.equal(await page.textContent('#shelfScore'), `${score >= 2900 ? '👑' : '🏆'} ${score}`);
+      assert.equal(await page.textContent('#shelfTarget'), to ? `→ 🎁 ${to}` : '', 'the next total to aim for');
+      // the only numbers for the child: the score, the target and the target on the wrapped tile
       assert.ok(!/\d/.test(await page.evaluate(() => {
-        const c = document.querySelector('#gifts .panel').cloneNode(true); c.querySelector('#shelfScore').remove(); return c.textContent;
-      })), 'no other digits on the shelf');
+        const c = document.querySelector('#gifts .panel').cloneNode(true);
+        for (const el of c.querySelectorAll('#shelfScore, #shelfTarget, .tileNum, #howPoints')) el.remove();
+        return c.textContent;
+      })), 'no other numbers on the shelf');
       assert.ok(await fits(), `no horizontal scroll at ${score}`);
       if (score === 300) {
         // 13iii. both row labels show, with the skies caption
-        for (const t of ['Skies', 'Block looks', 'Shows in 🎨 free build']) assert.ok(await page.getByText(t, { exact: true }).isVisible(), t);
+        for (const t of ['Skies', 'Block looks', 'Shows in 🎨 free build and 🧸 builds']) {
+          assert.ok(await page.getByText(t, { exact: true }).isVisible(), t);
+        }
+        await tabStaysIn('#gifts');                         // Tab stays inside the shelf
         await page.click('.tile.wrapped');                  // wiggles, and its bar pulses
         assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.tile.wrapped .tileBar')).animationName), 'barPulse');
         await page.waitForTimeout(600);
         await shot('15-shelf-300');
-        // 13iv. a sky picked in a challenge: 🎨 wiggles (or, with reduced motion, glows) to say where it shows
+        // 13ii. the grown-ups section, at the bottom of the shelf
+        await grownUps('Now: 300 🏆. Next gift at 600: 🌊 Underwater');
+        assert.equal(await page.evaluate(() => [...document.querySelectorAll('#howGifts tr td:first-child')]
+          .filter((td) => td.textContent === '✓').length), 2);
+        // reached with Tab inside the trapped shelf, within one full cycle
+        const onSummary = () => page.evaluate(() => document.activeElement === document.querySelector('#howPoints summary'));
+        for (let i = 0; i < 12 && !(await onSummary()); i++) await page.keyboard.press('Tab');
+        assert.ok(await onSummary(), 'Tab reaches the grown-ups summary');
+        assert.equal(await page.evaluate(() => document.querySelector('#howPoints summary').matches(':focus-visible')), true);
+        await page.keyboard.press('Enter');                 // opens it from the keyboard
+        assert.equal(await page.evaluate(() => document.getElementById('howPoints').open), true);
+        assert.ok(await fits(), 'the open section fits without sideways scroll');
+        await page.locator('#howNow').scrollIntoViewIfNeeded();
+        await shot('16-grownups');
+        // 13iv. a sky picked in a 🧸 challenge shows straight away (no 🎨 nudge)...
+        await page.evaluate(() => { document.getElementById('gifts').scrollTop = 0; });
         await page.click('#skyTiles .tile[data-id="night"]');
+        await page.waitForSelector('#gifts', { state: 'hidden' });
+        assert.equal(await page.evaluate(() => window.magnetGame.sky()), 'night');
+        await page.waitForTimeout(300);
+        assert.equal(await page.locator('#btnFree.nudge').count(), 0, 'no nudge in a 🧸 build');
+        // ...but in a themed pack 🎨 wiggles (or, with reduced motion, glows) to say where it will show
+        await page.click('#cardEmoji');
+        await pickBuild('candycorn');
+        assert.equal(await page.evaluate(() => window.magnetGame.sky()), 'halloween');
+        await page.click('#score');
+        await page.click('#skyTiles .tile[data-id="sunny"]');
         await page.waitForSelector('#btnFree.nudge');
         assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('btnFree')).animationName), 'wiggle');
         await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.waitForSelector('#btnFree:not(.nudge)');
         await page.click('#score');
-        await page.click('#skyTiles .tile[data-id="sunny"]');
+        await page.click('#skyTiles .tile[data-id="night"]');
         await page.waitForSelector('#btnFree.nudge');
         assert.deepEqual(await page.evaluate(() => { const st = getComputedStyle(document.getElementById('btnFree'));
           return [st.animationName, st.boxShadow.includes('rgb(255, 210, 63)')]; }), ['none', true], 'a glow, not a wiggle');
         await page.emulateMedia({ reducedMotion: 'no-preference' });
-        // 13ii. the grown-ups section: closed by default, all six gifts, the next one by name
+        // 13v. ❓ has a button that opens the shelf; closing it puts focus on 🏆
         await page.click('#btnHelp');
         await page.waitForSelector('#welcome.show');
-        assert.equal(await page.evaluate(() => document.getElementById('howPoints').open), false, 'closed by default');
-        assert.equal(await page.locator('#howGifts tr').count(), 6);
-        assert.equal(await page.evaluate(() => [...document.querySelectorAll('#howGifts tr td:first-child')]
-          .filter((td) => td.textContent === '✓').length), 2);
-        assert.equal(await page.textContent('#howNow'), 'Now: 300 🏆. Next gift at 600: 🌊 Underwater');
-        await page.keyboard.press('Shift');
-        await page.focus('#howPoints summary');
-        assert.equal(await page.evaluate(() => document.querySelector('#howPoints summary').matches(':focus-visible')), true);
-        await page.keyboard.press('Enter');                 // opens it from the keyboard
-        assert.equal(await page.evaluate(() => document.getElementById('howPoints').open), true);
-        assert.ok(await fits(), 'the open section fits without sideways scroll');
-        await shot('16-grownups');
-      }
-      if (score === 3000) {
+        assert.equal(await page.textContent('#welcomePrizes'), '🏆 Prizes, backgrounds & points');
+        await page.waitForSelector('#welcomePrizes', { state: 'visible' }); // the panel pops in from nothing
+        await page.click('#welcomePrizes');
+        await page.waitForSelector('#gifts.show');
+        assert.equal(await page.isVisible('#welcome'), false, 'the welcome closes');
         await page.keyboard.press('Escape');
-        await page.click('#btnHelp');
-        assert.equal(await page.textContent('#howNow'), 'Every gift found! 👑');
+        await page.waitForSelector('#gifts', { state: 'hidden' });
+        assert.equal(await focused(), 'score');
+        // 13vi. a short landscape phone: the shelf scrolls up and down, never sideways
+        await page.setViewportSize({ width: 568, height: 320 });
+        await page.click('#score');
+        await page.click('#howPoints summary');
+        assert.ok(await fits(), 'no horizontal scroll at 568×320');
+        assert.ok(await page.evaluate(() => { const g = document.getElementById('gifts'); return g.scrollHeight > g.clientHeight; }), 'it scrolls');
+        await page.locator('#howNow').scrollIntoViewIfNeeded();
+        assert.ok(await page.locator('#howNow').isVisible());
+        await shot('17-shelf-568x320');
       }
+      if (score === 3000) await grownUps('Every gift found! 👑');
       await page.context().close();
     }
+
+    // 14. the outline reads on every chosen sky in a 🧸 Toy Box challenge: sample just outside its
+    // edge (the white line at 1px, the halo at 3px) against the sky 12px out, and want ≥3:1
+    const probe = () => page.evaluate(() => {
+      const g = window.magnetGame, G = window.MagnetGeometry, c = document.getElementById('stage');
+      const cx = c.getContext('2d'), dpr = c.width / window.innerWidth, slots = g.slots();
+      const lum = (d) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+        return 0.2126 * f(d[0]) + 0.7152 * f(d[1]) + 0.0722 * f(d[2]); };
+      const px = (p) => lum(cx.getImageData(Math.floor(p.x * dpr), Math.floor(p.y * dpr), 1, 1).data); // the pixel the point is in
+      const inside = (p) => { const w = g.s2w(p.x, p.y); return slots.some((sl) => G.pointInPolygon(w.x, w.y, G.worldPolygon(sl))); };
+      let n = 0, ok = 0;
+      for (const sl of slots) {
+        const poly = G.worldPolygon(sl).map((v) => g.w2s(v.x, v.y));
+        poly.forEach((a, i) => {
+          const b = poly[(i + 1) % poly.length], len = Math.hypot(b.x - a.x, b.y - a.y);
+          if (len < 12) return;
+          let nx = (b.y - a.y) / len, ny = -(b.x - a.x) / len;            // outward normal
+          if (inside({ x: (a.x + b.x) / 2 + nx * 3, y: (a.y + b.y) / 2 + ny * 3 })) { nx = -nx; ny = -ny; }
+          for (let t = 0.1; t < 0.91; t += 0.05) {
+            const q = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+            const at = (d) => ({ x: q.x + nx * d, y: q.y + ny * d });
+            if (inside(at(1)) || inside(at(12)) || at(12).y >= g.view.groundY) continue; // edges between pieces, the ground
+            const sky = px(at(12)), cr = (l) => (Math.max(l, sky) + 0.05) / (Math.min(l, sky) + 0.05);
+            n++;
+            if (Math.max(cr(px(at(1))), cr(px(at(3)))) >= 3) ok++;
+          }
+        });
+      }
+      return { n, share: ok / n };
+    });
+    page = await fresh({ 'magnet-blocks-welcomed': true, 'magnet-blocks-score': 3000 });
+    await pickBuild('rocket');
+    for (const sc of ['night', 'sea', 'space', 'dusk']) {
+      await page.evaluate((sc) => { window.magnetGame.gifts.scene = sc; }, sc);
+      await page.waitForTimeout(150);
+      assert.equal(await page.evaluate(() => window.magnetGame.sky()), sc);
+      const r = await probe();
+      assert.ok(r.n >= 40 && r.share >= 0.9, `outline contrast on ${sc}: ${JSON.stringify(r)}`);
+      await shot('18-rocket-' + sc);
+    }
+    await page.click('#cardEmoji');
+    await pickBuild('ghost');
+    assert.equal(await page.evaluate(() => window.magnetGame.sky()), 'halloween', 'Halloween ignores the chosen sky');
+    const rg = await probe();
+    assert.ok(rg.share >= 0.9, `outline contrast on Halloween: ${JSON.stringify(rg)}`);
+    await page.context().close();
 
     assert.deepEqual(errors, []);
     console.log('smoke test passed');

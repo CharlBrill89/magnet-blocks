@@ -26,9 +26,9 @@ build and new looks for the blocks.
 | Drop a block over the tray | It stays on the board |
 | Tap a shape in the tray | A block drops into the middle of the play area |
 | Press and hold 🧹 | A ring fills around it, then everything is cleared. A quick tap does nothing. For a few seconds 🧹 turns into ↩️: tap it to get everything back |
-| ❓ | Shows the welcome again: what challenges and free build are, and which packs there are (🎄 Christmas and 🚗 Vehicles are coming soon). Grown-ups will find **Reset progress…** at the bottom |
+| ❓ | Shows the welcome again: what challenges and free build are, and which packs there are (🎄 Christmas and 🚗 Vehicles are coming soon). **🏆 Prizes, backgrounds & points** opens the prizes shelf, and grown-ups will find **Reset progress…** at the bottom |
 | 🎯 / 🎨 | Challenges / free build. The first visit opens on a welcome with a blank board; after that the game starts in challenges. 🎯 opens a grid where you choose a theme (🧸 Toy Box or 🎃 Halloween) and what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
-| 🏆 | Your score. It goes up every time you finish a build and is remembered on this device. Tap it for the 🎁 gift shelf |
+| 🏆 | Your score. It goes up every time you finish a build and is remembered on this device. Tap it for the 🎁 prizes shelf |
 | 🔊 | Sound on/off |
 
 **Challenges 🎯:** a card says what to build, for example "Build a Rocket! 🚀". It shows
@@ -82,11 +82,11 @@ Tap it to open it and see what's inside; it's switched on straight away. Two gif
 | Score | Gift | What it is |
 | ---: | --- | --- |
 | 50 | ✨ Sparkly blocks | A block look: a few twinkling white highlights |
-| 250 | 🌙 Night sky | A free-build sky with twinkling stars and a moon |
-| 600 | 🌊 Underwater | A free-build sky with fish swimming by and bubbles |
+| 250 | 🌙 Night sky | A sky with twinkling stars and a moon |
+| 600 | 🌊 Underwater | A sky with fish swimming by and bubbles |
 | 1000 | 🫧 Bubble blocks | A block look: a glossy highlight |
-| 1700 | 🚀 Space | A free-build sky with a starfield and a ringed planet |
-| 2900 | 👑 Crown + 🎃 Dusk sky | 👑 replaces 🏆, and the Halloween dusk becomes a free-build sky |
+| 1700 | 🚀 Space | A sky with a starfield and a ringed planet |
+| 2900 | 👑 Crown + 🎃 Dusk sky | 👑 replaces 🏆, and the Halloween dusk becomes a sky you can choose |
 
 Finishing every build once is worth **2,970 points** (Toy Box 1,730 including its pack bonus,
 Halloween 1,240), so every gift can be had without replays. The lowest first-time build
@@ -94,19 +94,25 @@ score is 70, so the very first win always gives ✨. Replays still score. The un
 both rules against the real builds (`maxFirstTimeScore()` in `geometry.js`), and each new pack
 should add one gift above the current top.
 
-Tap 🏆 to open the gift shelf. Its header shows the score and a bar to the next gift. Below it are a row of
-skies (☀️ sunny plus the unlocked ones, captioned "Shows in 🎨 free build") and a row of block looks
-(plain plus the unlocked ones). A single wrapped 🎁 with its own little bar sits in the row the next gift belongs to.
-Picking a sky during a challenge makes 🎨 wiggle (or glow, with reduced motion) to show where it will appear.
-The gift overlay names the gift for whoever is reading along.
+Tap 🏆 (or **🏆 Prizes, backgrounds & points** in ❓) to open **Your prizes**. Its header shows the
+score and the next total to aim for, for example "🏆 300 → 🎁 600", over a bar ("👑 3000" once
+everything is found). Below it are a row of skies (☀️ sunny plus the unlocked ones) and a row of block
+looks (plain plus the unlocked ones). Tap a picture to use it. A single wrapped 🎁 sits in the row the
+next gift belongs to, showing its target (e.g. "600") with its own little bar. The gift overlay names
+the gift for whoever is reading along.
 
-**For grown-ups:** the ❓ panel has a closed-by-default section, *For grown-ups: how 🏆 points work*.
-It explains the scoring and lists every gift with its points, ✓ for the ones found. Below the list it says
-what's next, for example "Now: 300 🏆. Next gift at 600: 🌊 Underwater".
-Tap a picture to use it. **Skies only show in 🎨 free build**: challenges keep their
-pack's theme, so the outline always stands out. Block looks show everywhere, but they only
-add highlights. A block's colour never changes, so challenges still match. A red dot on 🏆
-means there's a gift you haven't looked at yet.
+**Where skies show:** the chosen sky shows in 🎨 free build and in the 🧸 Toy Box builds, and the caption
+says so. A *themed* pack (`themed: true` in `PACKS`, such as 🎃 Halloween) always keeps its own scene.
+Picking a sky during a themed-pack build makes 🎨 wiggle (or glow, with reduced motion) to show where
+it will appear. Each sky has its own outline style so the build's outline stands out: grey on the sunny
+sky, and a light fill with a solid white edge on the dark ones. Skies with light patches too (dusk, the sea)
+add a dark halo outside the white. The smoke test measures at least 3:1 contrast on each.
+Block looks show everywhere, but they only add highlights. A block's colour never changes, so challenges
+still match. A red dot on 🏆 means there's a gift you haven't looked at yet.
+
+**For grown-ups:** the bottom of the prizes shelf has a closed-by-default section, *For grown-ups: how 🏆
+points work*. It explains the scoring and lists every gift with its points, ✓ for the ones found. Below the
+list it says what's next, for example "Now: 300 🏆. Next gift at 600: 🌊 Underwater".
 
 Gifts are saved in `localStorage` (`magnet-blocks-gifts`), but the score is the source of truth.
 Everything the score has reached is unlocked again on load, so losing that key never loses a gift.
@@ -115,8 +121,8 @@ A player who already had points when gifts arrived gets them all quietly, with t
 written confirmation (*Keep everything* is the default). It keeps the free build. Erasing in the middle of a win also stops that win (its count-up, ➡️ and any gift still to come), and takes the finished build off the board.
 
 **Themes 🎃:** choosing a 🎃 Halloween build turns the sky to dusk, with a big moon,
-bats flitting past and pumpkins in the grass. The outline gets a light fill and a dashed white
-edge there, so it shows up on the dark sky. The pack has 7 builds, all made from the
+bats flitting past and pumpkins in the grass. The outline gets a light fill, a white edge and a dark halo
+there, so it shows up against both the dark sky and the orange glow. The pack has 7 builds, all made from the
 same box of blocks: Candy Corn 🍬, Witch Hat 🧙, Cat 🐈‍⬛, Haunted House 🏚️, Ghost 👻,
 Bat 🦇 and Pumpkin 🎃.
 
@@ -195,7 +201,9 @@ the free build surviving a challenge and a reload, and the landscape layout: eve
 It also checks the 🎁 gifts at 375×667, each in a fresh browser profile. These checks cover:
 - the first win's single gift, shown only after the count-up
 - two gifts from one win, shown in turn
-- the shelf, with skies in free build only
+- the prizes shelf: its title, the "→ 🎁 600" target, and the grown-ups section at its bottom (also opened from ❓)
+- skies showing in 🧸 builds but not in themed packs, with the outline at 3:1 or better on each sky
+- the shelf fitting without sideways scroll at 375×667 and 568×320
 - gifts surviving a reload and a lost key
 - quietly migrating an existing score
 - reset and its confirmation, including erasing in the middle of a win
