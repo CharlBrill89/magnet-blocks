@@ -31,6 +31,9 @@
   function save(key, value) {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* ignore */ }
   }
+  function drop(key) {
+    try { localStorage.removeItem(key); } catch (e) { /* ignore */ }
+  }
   function slots() {
     return state.mode === 'challenge' ? G.targetSlots(G.CHALLENGES[state.challengeIdx]) : [];
   }
@@ -534,6 +537,8 @@
   $('welcomeClose').addEventListener('click', closeWelcome);
   $('welcome').addEventListener('click', (e) => { if (e.target === $('welcome')) closeWelcome(); });
   $('btnHelp').addEventListener('click', showWelcome);
+  // "🏆 Prizes, backgrounds & points": from ❓ to the shelf (focus returns to 🏆 when it closes).
+  $('welcomePrizes').addEventListener('click', () => { closeWelcome(); openShelf(); });
   $('btnSound').addEventListener('click', () => {
     state.muted = !state.muted;
     $('btnSound').textContent = state.muted ? '🔇' : '🔊';
@@ -604,8 +609,10 @@
       // Finishing a whole themed pack for the first time: a bonus and an encore.
       if (!packWasDone && packBuilds(ch.pack).every((c) => doneBuilds.has(c.id))) {
         addScore(G.PACK_BONUS, `${packOf(ch.pack).emoji} +${G.PACK_BONUS}`, 1300);
-        setTimeout(() => { confetti(); sfx.success(); }, 1300);
+        const gen = scoreGen;
+        setTimeout(() => { if (gen === scoreGen) { confetti(); sfx.success(); } }, 1300); // not after a reset
       }
+      unlockGifts(); // any 🎁 crossed waits for the count-up to finish
       const nx = G.CHALLENGES[G.nextChallenge(state.challengeIdx, doneBuilds)];
       $('nextEmoji').textContent = nx.emoji;
       $('next').setAttribute('aria-label', 'Next: ' + nx.name);
@@ -615,13 +622,32 @@
 
   // ----- score: a "+N" flies from the card to the 🏆 counter, which counts up
   let shownScore = state.score;
-  function syncScore() { $('scoreN').textContent = String(Math.round(shownScore)); }
+  let countUps = 0; // "+N"s still flying or counting up; a 🎁 celebration waits for none
+  let scoreGen = 0;  // bumped by a reset, so "+N"s and count-ups already on their way stop
+  // The counter, its label, and the strip to the next gift (which follows the count-up).
+  function syncScore() {
+    const s = Math.round(shownScore), m = G.nextMilestone(s), strip = $('giftStrip');
+    $('scoreN').textContent = String(s);
+    $('score').setAttribute('aria-label', `Score ${s}. Gifts`);
+    $('scoreIcon').textContent = m ? '🏆' : '👑'; // every gift earned: the crown
+    if ($('gifts').classList.contains('show')) renderHowPoints(); // keeps the grown-ups line current
+    strip.hidden = !m;
+    if (!m) return;
+    $('giftFill').style.width = (m.k * 100).toFixed(1) + '%';
+    strip.classList.toggle('near', m.k >= 0.75); // a 🎁 peeks out near the end (never "N to go")
+    strip.setAttribute('aria-valuemin', String(m.from));
+    strip.setAttribute('aria-valuemax', String(m.to));
+    strip.setAttribute('aria-valuenow', String(s));
+  }
   function addScore(gain, label, delay) {
     state.score += gain; state.lastGain = gain;
     save('magnet-blocks-score', state.score);
-    setTimeout(() => flyToScore(label), delay);
+    countUps++;
+    const gen = scoreGen;
+    setTimeout(() => { if (gen === scoreGen) flyToScore(label); }, delay);
   }
   function flyToScore(label) {
+    const gen = scoreGen;
     const from = $('card').getBoundingClientRect(), to = $('score').getBoundingClientRect();
     const fly = document.createElement('div');
     fly.className = 'fly'; fly.textContent = label;
@@ -633,18 +659,303 @@
     }));
     setTimeout(() => {
       fly.remove();
+      if (gen !== scoreGen) return;
       const start = shownScore, t0 = performance.now();
       const step = (now) => {
+        if (gen !== scoreGen) return;
         const k = Math.min(1, (now - t0) / 700);
         shownScore = start + (state.score - start) * k;
         syncScore();
-        if (k < 1) requestAnimationFrame(step);
+        if (k < 1) { requestAnimationFrame(step); return; }
+        countUps = Math.max(0, countUps - 1);
+        showNextGift();
       };
       requestAnimationFrame(step);
       $('score').classList.remove('bump'); void $('score').offsetWidth; $('score').classList.add('bump');
       tone(1568, 0, 0.12, 'sine', 0.2); tone(2093, 0.08, 0.18, 'sine', 0.2); // "ding-ding"
     }, 900);
   }
+
+  // ----- 🎁 gifts: the 🏆 score unlocks free-build skies and block looks (G.GIFTS).
+  // Saved as {v, unlocked, scene, skin, seen}. The score is the source of truth: everything
+  // it has reached is unlocked on load, so a lost or stale key never loses a gift.
+  const GIFTS_KEY = 'magnet-blocks-gifts';
+  const giftById = (id) => G.GIFTS.find((g) => g.id === id);
+  const SKY_ICON = { sunny: '☀️', night: '🌙', sea: '🐟', space: '🪐', dusk: '🎃' };
+  const SCENE_NAME = { sunny: 'Sunny sky', dusk: 'Dusk sky' }, SKIN_NAME = { plain: 'Plain blocks' };
+  // Where a chosen sky shows: free build and every pack that isn't themed (e.g. "🎨 free build and 🧸 builds").
+  const SKY_WHERE = ['🎨 free build'].concat(G.PACKS.filter((p) => !p.themed).map((p) => `${p.emoji} builds`)).join(' and ');
+  $('skyCaption').textContent = 'Shows in ' + SKY_WHERE;
+  for (const g of G.GIFTS) {
+    if (g.scene && !SCENE_NAME[g.scene]) SCENE_NAME[g.scene] = g.name;
+    if (g.skin) SKIN_NAME[g.skin] = g.name;
+  }
+  // The skies / looks on offer: the default first, then the unlocked ones in gift order.
+  const scenesOf = (unlocked) => ['sunny'].concat(G.GIFTS.filter((g) => g.scene && unlocked.has(g.id)).map((g) => g.scene));
+  const skinsOf = (unlocked) => ['plain'].concat(G.GIFTS.filter((g) => g.skin && unlocked.has(g.id)).map((g) => g.skin));
+  function loadGifts() {
+    const raw = load(GIFTS_KEY, null);
+    const stored = raw && typeof raw === 'object' ? raw : {};
+    const known = (ids) => (Array.isArray(ids) ? ids : []).filter((id) => giftById(id));
+    const unlocked = new Set(known(stored.unlocked).concat(G.milestonesReached(state.score)));
+    // No key yet but a score (a player from before gifts, or a lost key): everything reached
+    // unlocks silently and unseen, so the 🏆 dot shows instead of a flood of celebrations.
+    return {
+      unlocked, seen: new Set(known(stored.seen)),
+      scene: scenesOf(unlocked).includes(stored.scene) ? stored.scene : 'sunny',
+      skin: skinsOf(unlocked).includes(stored.skin) ? stored.skin : 'plain',
+    };
+  }
+  const gifts = loadGifts();
+  function saveGifts() {
+    save(GIFTS_KEY, { v: 1, unlocked: [...gifts.unlocked], scene: gifts.scene, skin: gifts.skin, seen: [...gifts.seen] });
+  }
+  // The gifts the child can see: unlocked, minus any still waiting for (or showing, unopened) its
+  // celebration, so the shelf never gives away a surprise. They're saved as unlocked at once,
+  // though, so a reload mid-count-up keeps the gift (it then shows with the dot instead).
+  function shownGifts() {
+    const pending = new Set(giftQueue.concat(cel.gift && !cel.opened ? [cel.gift.id] : []));
+    return new Set([...gifts.unlocked].filter((id) => !pending.has(id)));
+  }
+  // A dot on 🏆 while a gift on the shelf hasn't been seen.
+  function updateDot() {
+    $('giftDot').hidden = ![...shownGifts()].some((id) => !gifts.seen.has(id));
+  }
+
+  // ----- modal focus. While a modal dialog is open everything else on the page is `inert`, so
+  // Tab and screen readers stay inside it, and Tab / Shift+Tab wrap round its buttons.
+  // A stack, so a dialog over a dialog works. (The picker and welcome could use it too: #22.)
+  const modals = [];
+  function syncInert() {
+    const top = modals[modals.length - 1];
+    for (const el of document.body.children) if (el.tagName !== 'SCRIPT') el.inert = !!top && el !== top;
+  }
+  function trapFocus(dialog) {
+    if (!modals.includes(dialog)) modals.push(dialog);
+    syncInert();
+  }
+  // Call before moving focus back out: an inert element can't take focus.
+  function releaseFocus(dialog) {
+    const i = modals.indexOf(dialog);
+    if (i >= 0) modals.splice(i, 1);
+    syncInert();
+  }
+  document.addEventListener('keydown', (e) => {
+    const top = modals[modals.length - 1];
+    if (e.key !== 'Tab' || !top) return;
+    const items = [...top.querySelectorAll('button, [href], input, summary, [tabindex]')].filter((b) =>
+      !b.disabled && b.tabIndex >= 0 && b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden' &&
+      getComputedStyle(b).pointerEvents !== 'none'); // e.g. the opened 🎁 while it fades out
+    // Always moved here, never by the browser, so it can't land on something fading out.
+    e.preventDefault();
+    if (!items.length) return;
+    const i = items.indexOf(document.activeElement), n = items.length;
+    items[i < 0 ? (e.shiftKey ? n - 1 : 0) : (i + (e.shiftKey ? n - 1 : 1)) % n].focus();
+  });
+
+  // ----- celebration: one overlay per new gift, in turn, once the score has counted up
+  const giftQueue = [];
+  const cel = { gift: null, opened: false, openTimer: 0, closeTimer: 0, nextTimer: 0 };
+  // How long the 🎁 waits before opening itself, and the opened gift before closing (ms).
+  // Only the smoke test changes these.
+  const giftTiming = { open: 6000, close: 5000 };
+  function unlockGifts() {
+    for (const id of G.milestonesReached(state.score)) {
+      if (gifts.unlocked.has(id)) continue;
+      gifts.unlocked.add(id); giftQueue.push(id);
+    }
+    saveGifts(); // unlocked straight away, so a reload mid-celebration still keeps it (with the dot)
+    showNextGift();
+  }
+  function showNextGift() {
+    // Waits for an open reset confirmation too: on top of it, the gift would leave it inert.
+    if (cel.gift || countUps || !giftQueue.length || $('reset').classList.contains('show')) return;
+    closeShelf(); // first, so its focus return happens before the gift takes focus
+    const g = giftById(giftQueue.shift());
+    cel.gift = g; cel.opened = false;
+    $('gift').setAttribute('aria-label', 'New gift: ' + g.name);
+    $('gift').classList.remove('opened');
+    $('gift').classList.add('show');
+    trapFocus($('gift'));
+    $('giftBox').focus();
+    cel.openTimer = setTimeout(openGift, giftTiming.open); // opens itself if nobody taps it
+  }
+  function openGift() {
+    const g = cel.gift; if (!g || cel.opened) return;
+    clearTimeout(cel.openTimer);
+    cel.opened = true;
+    gifts.seen.add(g.id);
+    if (g.scene) gifts.scene = g.scene; // and switch it on
+    if (g.skin) gifts.skin = g.skin;
+    saveGifts();
+    renderPreview(g);
+    $('gift').classList.add('opened');
+    $('giftShow').focus();
+    audio(); sfx.success();
+    if (!reducedMotion()) {
+      const r = $('giftBox').getBoundingClientRect();
+      burst(r.left + r.width / 2, r.top + r.height / 2, 40, G.COLORS.map((c) => c.hex).concat('#fff'), 320);
+    }
+    cel.closeTimer = setTimeout(closeGift, giftTiming.close);
+  }
+  // A gift closed before it was opened stays unseen, so the 🏆 dot shows for it.
+  function closeGift(quiet) {
+    if (!cel.gift) return;
+    clearTimeout(cel.openTimer); clearTimeout(cel.closeTimer);
+    cel.gift = null;
+    $('gift').classList.remove('show', 'opened');
+    releaseFocus($('gift'));
+    updateDot();
+    if (quiet) return;
+    if (giftQueue.length) cel.nextTimer = setTimeout(showNextGift, 300);
+    else $('score').focus();
+  }
+  function renderPreview(g) {
+    const el = $('giftPreview');
+    el.innerHTML = '';
+    if (g.skin) el.appendChild(blockThumb(g.skin, 140));
+    else el.innerHTML = `<span class="thumb big sky-${g.scene}">${SKY_ICON[g.scene]}</span>`;
+    $('giftEmoji').textContent = g.emoji;
+    // Named for the grown-up reading along; a sky says where it shows.
+    $('giftName').textContent = g.kind === 'crown' ? 'Crown and dusk sky · you found them all!'
+      : g.kind === 'scene' ? `${g.name} · in ${SKY_WHERE}` : g.name;
+  }
+  $('giftBox').addEventListener('click', openGift);
+  $('giftShow').addEventListener('click', () => closeGift());
+  $('giftClose').addEventListener('click', () => closeGift());
+  // Before it's opened, a stray tap beside the 🎁 does nothing; after, any tap closes it.
+  $('gift').addEventListener('click', (e) => { if (e.target === $('gift') && cel.opened) closeGift(); });
+
+  // ----- the shelf (🏆): pick a free-build sky and a block look
+  // A square block in a little canvas, drawn with the given look.
+  function blockThumb(skin, size) {
+    const c = document.createElement('canvas'), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    c.width = c.height = Math.round(size * dpr);
+    c.style.width = c.style.height = size + 'px';
+    const x = c.getContext('2d');
+    x.scale(dpr, dpr);
+    const u = size * 0.56, o = (size - u) / 2;
+    drawBlock([{ x: o, y: o }, { x: o + u, y: o }, { x: o + u, y: o + u }, { x: o, y: o + u }], G.COLORS[3].hex, u, 1, x, skin);
+    return c;
+  }
+  let shelfTimer = 0;
+  function renderShelf() {
+    const tile = (kind, id, name, on) =>
+      `<button class="tile${on ? ' on' : ''}" data-kind="${kind}" data-id="${id}" aria-label="${name}" aria-pressed="${on}">` +
+      (kind === 'scene' ? `<span class="thumb sky-${id}">${SKY_ICON[id]}</span>` : '') + '</button>';
+    const shown = shownGifts(), s = Math.round(shownScore), m = G.nextMilestone(s);
+    // The header: "🏆 300 → 🎁 600" over a bar, so there's something to aim for ("👑 3000" once all are found).
+    $('shelfScore').textContent = `${m ? '🏆' : '👑'} ${s}`;
+    $('shelfTarget').textContent = m ? `→ 🎁 ${m.to}` : '';
+    $('shelfBar').hidden = !m;
+    if (m) {
+      $('shelfFill').style.width = (m.k * 100).toFixed(1) + '%';
+      $('shelfBar').setAttribute('aria-valuenow', String(Math.round(m.k * 100)));
+    }
+    // Exactly one wrapped 🎁 "next" tile, in the row its gift belongs to (the crown's dusk sky
+    // counts as a sky), showing its target and with its own bar; none once everything is found. No 🔒 tiles.
+    const nextRow = m ? (m.gift.skin ? 'skin' : 'scene') : null;
+    const nextTile = (kind) => nextRow !== kind ? '' :
+      `<button class="tile wrapped" data-next="1" aria-label="Next gift at ${m.to}: a surprise ${kind === 'skin' ? 'block look' : 'sky'}">` +
+      `<span class="tileNum" aria-hidden="true">${m.to}</span>🎁` +
+      `<span class="tileBar" aria-hidden="true"><i style="width:${(m.k * 100).toFixed(1)}%"></i></span></button>`;
+    $('skyTiles').innerHTML = scenesOf(shown).map((id) => tile('scene', id, SCENE_NAME[id], id === gifts.scene)).join('') + nextTile('scene');
+    $('skinTiles').innerHTML = skinsOf(shown).map((id) => tile('skin', id, SKIN_NAME[id], id === gifts.skin)).join('') + nextTile('skin');
+    for (const b of $('skinTiles').querySelectorAll('[data-kind="skin"]')) b.appendChild(blockThumb(b.dataset.id, 64));
+    for (const b of document.querySelectorAll('#gifts .tile')) b.addEventListener('click', () => pickTile(b));
+  }
+  function pickTile(b) {
+    if (b.dataset.next) { // not yet: it wiggles and its bar pulses
+      b.classList.remove('wiggle'); void b.offsetWidth; b.classList.add('wiggle');
+      sfx.select();
+      return;
+    }
+    // A themed pack keeps its own scene, so a sky picked there can't show yet: 🎨 wiggles once the
+    // shelf has closed, to say where it will. (In free build and other packs it shows straight away.)
+    if (b.dataset.kind === 'scene' && state.mode === 'challenge' && packOf(current().pack).themed) setTimeout(nudgeFree, 400);
+    gifts[b.dataset.kind] = b.dataset.id;
+    saveGifts();
+    sfx.color();
+    for (const t of document.querySelectorAll('#gifts .tile[data-kind="' + b.dataset.kind + '"]')) {
+      t.classList.toggle('on', t === b); t.setAttribute('aria-pressed', String(t === b));
+    }
+    clearTimeout(shelfTimer);
+    shelfTimer = setTimeout(closeShelf, 400); // long enough to see the choice light up
+  }
+  function nudgeFree() {
+    const f = $('btnFree');
+    f.classList.remove('nudge'); void f.offsetWidth; f.classList.add('nudge');
+    clearTimeout(nudgeFree.timer);
+    nudgeFree.timer = setTimeout(() => f.classList.remove('nudge'), 1200);
+  }
+  function openShelf() {
+    audio();
+    for (const id of shownGifts()) gifts.seen.add(id); // opening the shelf clears the dot
+    saveGifts(); updateDot();
+    renderShelf(); renderHowPoints();
+    $('howPoints').open = false; // the grown-ups part starts closed each time
+    $('gifts').classList.add('show');
+    $('gifts').scrollTop = 0;
+    trapFocus($('gifts'));
+    (document.querySelector('#gifts .tile.on') || $('giftsClose')).focus();
+  }
+  function closeShelf() {
+    clearTimeout(shelfTimer);
+    if (!$('gifts').classList.contains('show')) return;
+    $('gifts').classList.remove('show');
+    releaseFocus($('gifts'));
+    $('score').focus();
+  }
+  $('score').addEventListener('click', openShelf); // a plain tap: 🏆 has no other gesture
+  $('giftsClose').addEventListener('click', closeShelf);
+  $('gifts').addEventListener('click', (e) => { if (e.target === $('gifts')) closeShelf(); });
+
+  // ----- for grown-ups (bottom of the shelf): how points work, every gift, and the next one by name
+  function renderHowPoints() {
+    $('howGifts').innerHTML = G.GIFTS.map((g) => {
+      const got = gifts.unlocked.has(g.id);
+      return `<tr><td aria-label="${got ? 'Found' : 'Not yet'}">${got ? '✓' : '🎁'}</td><td class="pts">${g.at}</td>` +
+        `<td>${g.emoji}</td><td>${g.name}</td></tr>`;
+    }).join('');
+    const m = G.nextMilestone(state.score);
+    $('howNow').textContent = m ? `Now: ${state.score} 🏆. Next gift at ${m.to}: ${m.gift.emoji} ${m.gift.name}` : 'Every gift found! 👑';
+  }
+
+  // ----- reset (grown-ups, from the ❓ panel): erases the score, finished builds and gifts,
+  // but keeps the free build and the welcomed flag.
+  function openReset() { $('reset').classList.add('show'); trapFocus($('reset')); $('resetKeep').focus(); }
+  function closeReset() { $('reset').classList.remove('show'); releaseFocus($('reset')); $('resetOpen').focus(); showNextGift(); }
+  function eraseProgress() {
+    for (const k of ['magnet-blocks-score', 'magnet-blocks-done', GIFTS_KEY]) drop(k);
+    // Stop a win that's still counting up: its "+N"s, count-ups, encore and celebrations.
+    scoreGen++; countUps = 0;
+    for (const f of document.querySelectorAll('.fly')) f.remove();
+    state.score = 0; state.lastGain = 0; shownScore = 0;
+    doneBuilds.clear();
+    giftQueue.length = 0; clearTimeout(cel.nextTimer); closeGift(true);
+    if (state.won) {
+      // A finished build left on the board would be scored again by the next change, so it
+      // goes, along with the ➡️ and the card's won look.
+      state.won = false;
+      clearAll(true, state.boards.challenge);
+      $('next').classList.remove('show');
+      $('card').classList.remove('won');
+    }
+    gifts.unlocked.clear(); gifts.seen.clear(); gifts.scene = 'sunny'; gifts.skin = 'plain';
+    syncScore(); updateDot(); updateGain();
+  }
+  $('resetOpen').addEventListener('click', openReset);
+  $('resetKeep').addEventListener('click', closeReset);
+  $('resetErase').addEventListener('click', () => { eraseProgress(); sfx.pop(); closeReset(); });
+  $('reset').addEventListener('click', (e) => { if (e.target === $('reset')) closeReset(); });
+
+  // Esc closes the topmost of these.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if ($('reset').classList.contains('show')) closeReset();
+    else if (cel.gift) closeGift();
+    else if ($('gifts').classList.contains('show')) closeShelf();
+  });
 
   // ---------------------------------------------------------------- rendering
   function shade(hex, f) {
@@ -653,30 +964,63 @@
     return `rgb(${ch(n >> 16)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
   }
 
-  // pts: [{x,y}] screen coords
-  function pathOf(pts) {
-    ctx.beginPath();
-    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-    ctx.closePath();
+  // pts: [{x,y}] screen coords. c: the canvas context (the stage unless a gift thumbnail).
+  function pathOf(pts, c) {
+    c = c || ctx;
+    c.beginPath();
+    pts.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
+    c.closePath();
   }
 
-  function drawBlock(pts, color, unit, alpha) {
-    ctx.save();
-    ctx.globalAlpha = alpha === undefined ? 1 : alpha;
-    pathOf(pts);
-    ctx.fillStyle = color; ctx.fill();
-    ctx.save(); ctx.clip();
-    let minY = Infinity, maxY = -Infinity;
-    for (const p of pts) { minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
-    const g = ctx.createLinearGradient(0, minY, 0, maxY);
+  // skin: the 🎁 block look (gifts.skin by default). Looks only add highlights on top of
+  // the fill: the block's colour and outline never change, because challenges match on colour.
+  function drawBlock(pts, color, unit, alpha, c, skin) {
+    c = c || ctx;
+    c.save();
+    c.globalAlpha = alpha === undefined ? 1 : alpha;
+    pathOf(pts, c);
+    c.fillStyle = color; c.fill();
+    c.save(); c.clip();
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const p of pts) {
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+    }
+    const g = c.createLinearGradient(0, minY, 0, maxY);
     g.addColorStop(0, 'rgba(255,255,255,.38)'); g.addColorStop(0.5, 'rgba(255,255,255,0)');
     g.addColorStop(1, 'rgba(0,0,0,.14)');
-    ctx.fillStyle = g; ctx.fillRect(0, minY - 2, view.W, maxY - minY + 4);
-    ctx.restore();
-    pathOf(pts);
-    ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, unit * 0.08);
-    ctx.strokeStyle = shade(color, -0.38); ctx.stroke();
-    ctx.restore();
+    c.fillStyle = g; c.fillRect(minX - 2, minY - 2, maxX - minX + 4, maxY - minY + 4);
+    drawSkin(c, skin || gifts.skin, minX, minY, maxX, maxY, c !== ctx);
+    c.restore();
+    pathOf(pts, c);
+    c.lineJoin = 'round'; c.lineWidth = Math.max(2, unit * 0.08);
+    c.strokeStyle = shade(color, -0.38); c.stroke();
+    c.restore();
+  }
+
+  // ✨ a few twinkling white stars, or 🫧 a glossy bubble highlight: white, at most 30% opacity,
+  // drawn inside the block's clip. still: no twinkle (reduced motion, or a thumbnail).
+  const SPARKS = [[0.3, 0.32, 1], [0.68, 0.5, 0.8], [0.42, 0.74, 0.65]];
+  function drawSkin(c, skin, minX, minY, maxX, maxY, still) {
+    if (skin !== 'sparkle' && skin !== 'bubble') return;
+    const w = maxX - minX, h = maxY - minY, a0 = c.globalAlpha, m = Math.min(w, h);
+    c.fillStyle = '#fff';
+    if (skin === 'bubble') {
+      c.globalAlpha = a0 * 0.3;
+      c.beginPath(); c.ellipse(minX + w * 0.36, minY + h * 0.34, m * 0.2, m * 0.11, -0.6, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(minX + w * 0.6, minY + h * 0.24, m * 0.06, 0, Math.PI * 2); c.fill();
+    } else {
+      const phase = (minX + minY) * 0.01;
+      SPARKS.forEach(([fx, fy, size], i) => {
+        const tw = still || motionOff ? 1 : 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(frameNow / 350 + i * 2.1 + phase));
+        c.globalAlpha = a0 * 0.3 * tw;
+        const x = minX + w * fx, y = minY + h * fy, r = m * 0.14 * size, k = r * 0.28;
+        c.beginPath(); // four-point star
+        c.moveTo(x, y - r); c.quadraticCurveTo(x + k, y - k, x + r, y); c.quadraticCurveTo(x + k, y + k, x, y + r);
+        c.quadraticCurveTo(x - k, y + k, x - r, y); c.quadraticCurveTo(x - k, y - k, x, y - r);
+        c.fill();
+      });
+    }
+    c.globalAlpha = a0;
   }
 
   function popScale(p, now) {
@@ -702,8 +1046,17 @@
   }
 
   const theme = () => (state.mode === 'challenge' ? current().pack : 'toybox');
+  // What's drawn behind the board: a themed pack's challenges keep its own scene; free build and
+  // the other packs show the sky chosen on the 🏆 shelf (the outline is drawn to read on each).
+  const sky = () => (state.mode === 'challenge' && packOf(theme()).themed ? theme() : gifts.scene);
   function drawBackground(now) {
-    if (theme() === 'halloween') { drawSpookyBackground(now); return; }
+    const draw = {
+      halloween: drawSpookyBackground, dusk: drawSpookyBackground,
+      night: drawNightBackground, sea: drawSeaBackground, space: drawSpaceBackground,
+    }[sky()] || drawSunnyBackground;
+    draw(now);
+  }
+  function drawSunnyBackground(now) {
     const g = ctx.createLinearGradient(0, 0, 0, view.groundY);
     g.addColorStop(0, '#bde8ff'); g.addColorStop(1, '#effaff');
     ctx.fillStyle = g; ctx.fillRect(0, 0, view.W, view.H);
@@ -744,6 +1097,72 @@
     for (const fx of [0.06, 0.94]) ctx.fillText('🎃', view.W * fx, view.groundY + GRASS - 2);
   }
 
+  // ----- 🎁 free-build skies. Twinkles, fish and bubbles hold still under reduced motion.
+  const rnd = (i) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }; // stable "random"
+  function skyGradient(top, bottom) {
+    const g = ctx.createLinearGradient(0, 0, 0, view.groundY);
+    g.addColorStop(0, top); g.addColorStop(1, bottom);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, view.W, view.H);
+  }
+  function drawGround(fill, edge) {
+    ctx.fillStyle = fill; ctx.fillRect(0, view.groundY, view.W, view.H - view.groundY);
+    ctx.fillStyle = edge; ctx.fillRect(0, view.groundY, view.W, 4);
+  }
+  // Where the moon or planet goes: top right, but below the bar and palette (on a phone
+  // they wrap to three rows and would hide it).
+  const skyMark = () => ({ x: view.W * 0.84, y: Math.max(view.groundY * 0.22, view.topReserve + 44) });
+  function drawStars(now, n, depth) {
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < n; i++) {
+      ctx.globalAlpha = motionOff ? 0.8 : 0.4 + 0.6 * Math.abs(Math.sin(now / 700 + i * 1.7));
+      ctx.beginPath(); ctx.arc(rnd(i) * view.W, rnd(i + 100) * view.groundY * depth, 0.8 + rnd(i + 200) * 1.6, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  // 🌙 night: deep blue, twinkling stars and a glowing moon.
+  function drawNightBackground(now) {
+    skyGradient('#0d1b3e', '#34508f');
+    drawStars(now, 45, 0.8);
+    ctx.save();
+    ctx.shadowColor = '#fff8dc'; ctx.shadowBlur = 24; ctx.fillStyle = '#fff8dc';
+    const m = skyMark();
+    ctx.beginPath(); ctx.arc(m.x, m.y, Math.min(40, view.W * 0.07), 0, 7); ctx.fill();
+    ctx.restore();
+    drawGround('#2e6b4a', '#22553a');
+  }
+  // 🌊 underwater: fish swimming by, bubbles rising, a sandy floor.
+  function drawSeaBackground(now) {
+    const t = motionOff ? 0 : now;
+    skyGradient('#5cc8f0', '#1260a8');
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 14; i++) {
+      const x = rnd(i) * view.W + Math.sin(t / 900 + i) * 6;
+      const y = view.groundY - ((t / 30 + rnd(i + 50) * view.groundY) % view.groundY);
+      ctx.beginPath(); ctx.arc(x, y, 2 + rnd(i + 70) * 4, 0, 7); ctx.fill(); ctx.stroke();
+    }
+    ctx.font = '28px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#000'; // opaque: a see-through fill would fade the emoji too
+    ['🐟', '🐠', '🐡'].forEach((f, i) => {
+      const x = view.W + 60 - ((t / 40 + i * view.W * 0.4) % (view.W + 120)); // swims right to left, head first
+      ctx.fillText(f, x, view.groundY * (0.3 + i * 0.18) + Math.sin(t / 500 + i * 2) * 8);
+    });
+    drawGround('#ecd08a', '#d3b064');
+    ctx.font = `${GRASS + 4}px serif`; ctx.textBaseline = 'bottom';
+    ctx.fillText('🐚', view.W * 0.06, view.groundY + GRASS - 1);
+    ctx.fillText('🦀', view.W * 0.94, view.groundY + GRASS - 1);
+  }
+  // 🚀 space: a starfield, a ringed planet and a grey moon surface.
+  function drawSpaceBackground(now) {
+    skyGradient('#070720', '#2a1b5e');
+    drawStars(now, 70, 1);
+    ctx.font = `${Math.round(Math.min(56, view.W * 0.12))}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#000';
+    ctx.fillText('🪐', skyMark().x, skyMark().y);
+    drawGround('#8f8aa8', '#6f6a8a');
+    ctx.fillStyle = '#7a7594';
+    for (const fx of [0.12, 0.47, 0.8]) { ctx.beginPath(); ctx.ellipse(view.W * fx, view.groundY + 10, 16, 4, 0, 0, 7); ctx.fill(); }
+  }
+
   function trayGeom() {
     const n = G.SHAPE_ORDER.length, slotW = view.W / n;
     return { n, slotW, scale: Math.min(slotW / 2.5, (view.trayH - 30) / 1.2, 60), cy: view.H - view.trayH / 2 + 4 };
@@ -764,15 +1183,37 @@
     });
   }
 
-  // One plain grey outline of the build (no colours, no piece lines).
+  // How the outline is drawn on what's behind it (sky()); anything unlisted gets the sunny grey.
+  // On a dark sky the grey vanishes, so it gets a light fill and a solid white edge; a sky with
+  // light parts too (dusk's orange glow, the sea's pale top) adds a dark halo outside the white,
+  // so one of the two always stands out. (Kept deliberately small: a full per-theme map is #33.)
+  const DARK_OUTLINE = { fill: 'rgba(255,255,255,.28)', edge: '#fff' };
+  const HALO_OUTLINE = { fill: 'rgba(255,255,255,.28)', edge: '#fff', halo: 'rgba(30,16,60,.8)' };
+  const OUTLINE = { sunny: { fill: 'rgba(59,47,99,.2)' }, night: DARK_OUTLINE, space: DARK_OUTLINE,
+    sea: HALO_OUTLINE, dusk: HALO_OUTLINE, halloween: HALO_OUTLINE };
+  // One plain outline of the build (no colours, no piece lines).
   function drawTarget() {
     const ss = slots(); if (!ss.length) return;
-    ctx.beginPath();
-    for (const sl of ss) {
-      G.worldPolygon(sl).forEach((v, i) => { const q = w2s(v.x, v.y); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
-      ctx.closePath();
-    }
-    ctx.fillStyle = 'rgba(59,47,99,.2)'; ctx.fill();
+    const o = OUTLINE[sky()] || OUTLINE.sunny;
+    const addSlots = () => {
+      for (const sl of ss) {
+        G.worldPolygon(sl).forEach((v, i) => { const q = w2s(v.x, v.y); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+        ctx.closePath();
+      }
+    };
+    ctx.beginPath(); addSlots();
+    ctx.fillStyle = o.fill; ctx.fill();
+    if (!o.edge) return;
+    // Edge round the outside only: clip to everything outside the build (the screen with the
+    // slots cut out, even-odd), so the lines between pieces stay hidden. Strokes are centred on
+    // the path, so half of each width shows: white 0-2px out, then the halo 2-4px out.
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, view.W, view.H); addSlots(); ctx.clip('evenodd');
+    ctx.beginPath(); addSlots();
+    ctx.lineJoin = 'round';
+    if (o.halo) { ctx.lineWidth = 8; ctx.strokeStyle = o.halo; ctx.stroke(); }
+    ctx.lineWidth = 4; ctx.strokeStyle = o.edge; ctx.stroke();
+    ctx.restore();
   }
 
   function drawGlow(now) {
@@ -865,8 +1306,10 @@
   }
 
   let last = performance.now();
+  let frameNow = last, motionOff = false; // read by the sky and block-look drawing
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    frameNow = now; motionOff = reducedMotion();
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     drawBackground(now);
     drawTarget();
@@ -887,6 +1330,8 @@
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   syncPalette();
   syncScore();
+  if (state.score > 0) saveGifts(); // writes back anything the score unlocked (e.g. a migration)
+  updateDot();
   { const saved = load(FREE_KEY, []); if (Array.isArray(saved)) restore(saved, state.boards.free); }
   layout();
   // First visit: a blank board and the welcome. After that: straight into challenges.
@@ -895,7 +1340,7 @@
 
   // Small hook for the Playwright smoke test and debugging.
   window.magnetGame = {
-    state, view, w2s, s2w, setMode, rotateHandle, slots, theme,
+    state, view, w2s, s2w, setMode, rotateHandle, slots, theme, sky, gifts, giftTiming,
     binPoint() { const b = binGeom(); return { x: b.x, y: b.y }; },
     trayPoint(shape) {
       const t = trayGeom();

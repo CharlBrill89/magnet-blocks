@@ -9,7 +9,8 @@ plus a 🎃 Halloween pack.
 
 It is made for tablets and phones first and works with a mouse too. Instead of words it
 uses emoji, big touch targets and happy sounds. It has no timers or fail states. Finishing a
-build earns 🏆 points, and that's the only score.
+build earns 🏆 points, and that's the only score. Points unlock 🎁 gifts: new skies for free
+build and new looks for the blocks.
 
 ## How to play
 
@@ -25,9 +26,9 @@ build earns 🏆 points, and that's the only score.
 | Drop a block over the tray | It stays on the board |
 | Tap a shape in the tray | A block drops into the middle of the play area |
 | Press and hold 🧹 | A ring fills around it, then everything is cleared. A quick tap does nothing. For a few seconds 🧹 turns into ↩️: tap it to get everything back |
-| ❓ | Shows the welcome again: what challenges and free build are, and which packs there are (🎄 Christmas and 🚗 Vehicles are coming soon) |
+| ❓ | Shows the welcome again: what challenges and free build are, and which packs there are (🎄 Christmas and 🚗 Vehicles are coming soon). **🏆 Prizes, backgrounds & points** opens the prizes shelf, and grown-ups will find **Reset progress…** at the bottom |
 | 🎯 / 🎨 | Challenges / free build. The first visit opens on a welcome with a blank board; after that the game starts in challenges. 🎯 opens a grid where you choose a theme (🧸 Toy Box or 🎃 Halloween) and what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
-| 🏆 | Your score. It goes up every time you finish a build and is remembered on this device |
+| 🏆 | Your score. It goes up every time you finish a build and is remembered on this device. Tap it for the 🎁 prizes shelf |
 | 🔊 | Sound on/off |
 
 **Challenges 🎯:** a card says what to build, for example "Build a Rocket! 🚀". It shows
@@ -73,8 +74,55 @@ So the Rocket (5 pieces, 🟢 easy) is worth 100 the first time and 50 after tha
 (6 pieces, 🔴 hard) is worth 230 the first time and 180 after that. The card shows the points on offer before you start.
 The score and the ✅ finished builds are saved in `localStorage`, so they survive a reload.
 
+**Gifts 🎁:** the 🏆 score unlocks surprise gifts. A thin strip along the bottom of the 🏆
+button fills towards the next one (a 🎁 peeks out near the end). No "points to go" number is shown, and free build never earns points.
+When a win crosses a threshold, a wrapped 🎁 appears once the score has finished counting up.
+Tap it to open it and see what's inside; it's switched on straight away. Two gifts at once come one after the other. A gift doesn't appear on the shelf until its celebration, and if it opens by itself after 6 seconds, it closes 5 seconds later.
+
+| Score | Gift | What it is |
+| ---: | --- | --- |
+| 50 | ✨ Sparkly blocks | A block look: a few twinkling white highlights |
+| 250 | 🌙 Night sky | A sky with twinkling stars and a moon |
+| 600 | 🌊 Underwater | A sky with fish swimming by and bubbles |
+| 1000 | 🫧 Bubble blocks | A block look: a glossy highlight |
+| 1700 | 🚀 Space | A sky with a starfield and a ringed planet |
+| 2900 | 👑 Crown + 🎃 Dusk sky | 👑 replaces 🏆, and the Halloween dusk becomes a sky you can choose |
+
+Finishing every build once is worth **2,970 points** (Toy Box 1,730 including its pack bonus,
+Halloween 1,240), so every gift can be had without replays. The lowest first-time build
+score is 70, so the very first win always gives ✨. Replays still score. The unit tests check
+both rules against the real builds (`maxFirstTimeScore()` in `geometry.js`), and each new pack
+should add one gift above the current top.
+
+Tap 🏆 (or **🏆 Prizes, backgrounds & points** in ❓) to open **Your prizes**. Its header shows the
+score and the next total to aim for, for example "🏆 300 → 🎁 600", over a bar ("👑 3000" once
+everything is found). Below it are a row of skies (☀️ sunny plus the unlocked ones) and a row of block
+looks (plain plus the unlocked ones). Tap a picture to use it. A single wrapped 🎁 sits in the row the
+next gift belongs to, showing its target (e.g. "600") with its own little bar. The gift overlay names
+the gift for whoever is reading along.
+
+**Where skies show:** the chosen sky shows in 🎨 free build and in the 🧸 Toy Box builds, and the caption
+says so. A *themed* pack (`themed: true` in `PACKS`, such as 🎃 Halloween) always keeps its own scene.
+Picking a sky during a themed-pack build makes 🎨 wiggle (or glow, with reduced motion) to show where
+it will appear. Each sky has its own outline style so the build's outline stands out: grey on the sunny
+sky, and a light fill with a solid white edge on the dark ones. Skies with light patches too (dusk, the sea)
+add a dark halo outside the white. The smoke test measures at least 3:1 contrast on each.
+Block looks show everywhere, but they only add highlights. A block's colour never changes, so challenges
+still match. A red dot on 🏆 means there's a gift you haven't looked at yet.
+
+**For grown-ups:** the bottom of the prizes shelf has a closed-by-default section, *For grown-ups: how 🏆
+points work*. It explains the scoring and lists every gift with its points, ✓ for the ones found. Below the
+list it says what's next, for example "Now: 300 🏆. Next gift at 600: 🌊 Underwater".
+
+Gifts are saved in `localStorage` (`magnet-blocks-gifts`), but the score is the source of truth.
+Everything the score has reached is unlocked again on load, so losing that key never loses a gift.
+A player who already had points when gifts arrived gets them all quietly, with the dot, rather than a flood of celebrations.
+**Reset progress…** in the ❓ panel erases the score, the ✅ finished builds and the gifts after a
+written confirmation (*Keep everything* is the default). It keeps the free build. Erasing in the middle of a win also stops that win (its count-up, ➡️ and any gift still to come), and takes the finished build off the board.
+
 **Themes 🎃:** choosing a 🎃 Halloween build turns the sky to dusk, with a big moon,
-bats flitting past and pumpkins in the grass. The pack has 7 builds, all made from the
+bats flitting past and pumpkins in the grass. The outline gets a light fill, a white edge and a dark halo
+there, so it shows up against both the dark sky and the orange glow. The pack has 7 builds, all made from the
 same box of blocks: Candy Corn 🍬, Witch Hat 🧙, Cat 🐈‍⬛, Haunted House 🏚️, Ghost 👻,
 Bat 🦇 and Pumpkin 🎃.
 
@@ -149,7 +197,24 @@ tap to select then tap again to rotate, the ↺ rotate button, choosing a build 
 the rocket challenge in the right colours (including fixing a wrong-coloured piece),
 the outline (pieces aren't pulled into it), the score for a finished build and that it
 survives a reload, ➡️ going to the next build on the path, the 🎃 theme and its pack bonus,
-the free build surviving a challenge and a reload, and the landscape layout: every build's outline fits below the card at 375×667, 667×375 and 568×320, and the Tower is finished by dragging at 568×320. It fails on any page error.
+the free build surviving a challenge and a reload, and the landscape layout: every build's outline fits below the card at 375×667, 667×375 and 568×320, and the Tower is finished by dragging at 568×320.
+It also checks the 🎁 gifts at 375×667, each in a fresh browser profile. These checks cover:
+- the first win's single gift, shown only after the count-up
+- two gifts from one win, shown in turn
+- the prizes shelf: its title, the "→ 🎁 600" target, and the grown-ups section at its bottom (also opened from ❓)
+- skies showing in 🧸 builds but not in themed packs, with the outline at 3:1 or better on each sky
+- the shelf fitting without sideways scroll at 375×667 and 568×320
+- gifts surviving a reload and a lost key
+- quietly migrating an existing score
+- reset and its confirmation, including erasing in the middle of a win
+- the gift opening and closing by itself
+- a gift staying off the shelf until its celebration, and surviving a reload during the count-up
+- Tab staying inside the gift overlay, the shelf and the reset confirmation
+- storage that throws (private mode)
+- reduced motion
+- the top bar gaining no button or height
+
+It fails on any page error.
 
 ## Roadmap
 
