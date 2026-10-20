@@ -475,6 +475,41 @@
     return challenge.layout.length * POINTS_PER_PIECE * challenge.tier + (firstTime ? FIRST_TIME_BONUS : 0);
   }
 
+  /** Every first-time build score plus every pack bonus: the most a child can score without replays. */
+  function maxFirstTimeScore() {
+    return CHALLENGES.reduce((sum, c) => sum + challengeScore(c, true), 0) + PACK_BONUS * PACKS.length;
+  }
+
+  // Gifts the 🏆 score unlocks, lowest first. A gift unlocks a free-build sky (`scene`)
+  // and/or a block look (`skin`); block looks never change a block's colour.
+  // Rules (checked in tests): the first is at most the lowest first-time build score,
+  // so the first win always gives one, and the last is at most maxFirstTimeScore(),
+  // so every gift can be had without replays. Each new pack adds one gift above the top.
+  const GIFTS = [
+    { id: 'sparkle', at: 50, emoji: '✨', kind: 'skin', name: 'Sparkly blocks', skin: 'sparkle' },
+    { id: 'night', at: 250, emoji: '🌙', kind: 'scene', name: 'Night sky', scene: 'night' },
+    { id: 'sea', at: 600, emoji: '🌊', kind: 'scene', name: 'Underwater', scene: 'sea' },
+    { id: 'bubble', at: 1000, emoji: '🫧', kind: 'skin', name: 'Bubble blocks', skin: 'bubble' },
+    { id: 'space', at: 1700, emoji: '🚀', kind: 'scene', name: 'Space', scene: 'space' },
+    { id: 'crown', at: 2900, emoji: '👑', kind: 'crown', name: 'Crown and dusk sky', scene: 'dusk' },
+  ];
+
+  /** Ids of the gifts a score has reached. */
+  function milestonesReached(score) {
+    return GIFTS.filter((g) => g.at <= score).map((g) => g.id);
+  }
+
+  /**
+   * The next gift to earn: { gift, from, to, k } where k (0..1) is how far the score
+   * has got from the previous threshold (or 0) to this one; null once all are earned.
+   */
+  function nextMilestone(score) {
+    const i = GIFTS.findIndex((g) => g.at > score);
+    if (i < 0) return null;
+    const from = i ? GIFTS[i - 1].at : 0, to = GIFTS[i].at;
+    return { gift: GIFTS[i], from, to, k: Math.max(0, Math.min(1, (score - from) / (to - from))) };
+  }
+
   /** The build ➡️ goes to: the next unfinished one along the pack's path, else simply the next one. */
   function nextChallenge(idx, doneIds) {
     const pack = CHALLENGES[idx].pack;
@@ -490,5 +525,6 @@
     rotate, toWorld, worldPolygon, worldSnapPoints, pieceBounds, polygonArea,
     snapPiece, hitTest, pointInPolygon, touching, components, countShapes, challengeProgress,
     POINTS_PER_PIECE, FIRST_TIME_BONUS, PACK_BONUS, challengeScore, nextChallenge,
+    maxFirstTimeScore, GIFTS, milestonesReached, nextMilestone,
   };
 });

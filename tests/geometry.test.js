@@ -236,6 +236,49 @@ test('each pack runs from easiest to hardest, and harder builds score more', () 
   assert.deepEqual(order, G.PACKS.map((p) => p.id));
 });
 
+test('gifts: ascending, unique, and the first and last are reachable', () => {
+  const ats = G.GIFTS.map((g) => g.at);
+  for (let i = 1; i < ats.length; i++) assert.ok(ats[i] > ats[i - 1], 'ascending');
+  assert.equal(new Set(G.GIFTS.map((g) => g.id)).size, G.GIFTS.length, 'ids are unique');
+  for (const g of G.GIFTS) {
+    assert.ok(['skin', 'scene', 'crown'].includes(g.kind), g.id);
+    assert.ok(g.skin || g.scene, g.id + ' unlocks something');
+  }
+  const unlocks = G.GIFTS.flatMap((g) => [g.skin, g.scene].filter(Boolean));
+  assert.equal(new Set(unlocks).size, unlocks.length, 'each look or sky comes from one gift');
+  // the first win always gives a gift (the lowest first-time build score is worked out, not typed in)
+  const lowest = Math.min(...G.CHALLENGES.map((c) => G.challengeScore(c, true)));
+  assert.ok(G.GIFTS[0].at <= lowest, `first gift ${G.GIFTS[0].at} <= ${lowest}`);
+  // every gift is reachable by finishing each build once
+  const total = G.CHALLENGES.reduce((s, c) => s + G.challengeScore(c, true), 0) + G.PACK_BONUS * G.PACKS.length;
+  assert.equal(G.maxFirstTimeScore(), total);
+  assert.ok(G.GIFTS.at(-1).at <= total, `last gift ${G.GIFTS.at(-1).at} <= ${total}`);
+});
+
+test('gift milestones at the boundaries', () => {
+  const last = G.GIFTS.at(-1).at;
+  assert.deepEqual(G.milestonesReached(0), []);
+  assert.deepEqual(G.milestonesReached(49), []);
+  assert.deepEqual(G.milestonesReached(50), ['sparkle']);
+  assert.equal(G.milestonesReached(last - 1).length, G.GIFTS.length - 1);
+  assert.equal(G.milestonesReached(last).length, G.GIFTS.length);
+  assert.equal(G.milestonesReached(99999).length, G.GIFTS.length);
+  let n = G.nextMilestone(0);
+  assert.equal(n.gift.id, 'sparkle'); assert.equal(n.from, 0); assert.equal(n.to, 50); assert.equal(n.k, 0);
+  n = G.nextMilestone(49);
+  assert.equal(n.gift.id, 'sparkle'); near(n.k, 49 / 50);
+  n = G.nextMilestone(50);
+  assert.equal(n.gift.id, 'night'); assert.equal(n.from, 50); assert.equal(n.k, 0);
+  n = G.nextMilestone(last - 1);
+  assert.equal(n.gift.id, G.GIFTS.at(-1).id); assert.ok(n.k > 0.99 && n.k < 1);
+  assert.equal(G.nextMilestone(last), null);
+  assert.equal(G.nextMilestone(99999), null);
+  for (let s = -10; s < last; s += 7) {
+    const m = G.nextMilestone(s);
+    assert.ok(m.k >= 0 && m.k <= 1, `k in [0,1] at ${s}`);
+  }
+});
+
 test('next goes along the pack path to the next unfinished build', () => {
   const idx = (id) => G.CHALLENGES.findIndex((c) => c.id === id);
   const toy = G.CHALLENGES.filter((c) => c.pack === 'toybox');

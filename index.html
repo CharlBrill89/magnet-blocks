@@ -101,7 +101,7 @@
   .pick.current { outline: 4px solid #ffd23f; }
   .pick.done::after { content: '✅'; position: absolute; top: 2px; right: 4px; font-size: 18px; }
   .pick:active { transform: scale(.95); }
-  #pickClose, #welcomeClose { position: absolute; top: -18px; right: -10px; width: 48px; height: 48px; font-size: 22px; }
+  #pickClose, #welcomeClose, #giftsClose { position: absolute; top: -18px; right: -10px; width: 48px; height: 48px; font-size: 22px; }
   #score { display: flex; align-items: center; gap: 4px; height: var(--btn); padding: 0 12px 0 8px;
     border-radius: 16px; background: #fff6c9; box-shadow: 0 3px 0 rgba(0,0,0,.18);
     font-size: 22px; font-weight: 700; color: #3b2f63; font-variant-numeric: tabular-nums; }
@@ -124,6 +124,9 @@
   /* First visit: what the two modes are and which packs there are. */
   #welcome { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
     background: rgba(59,47,99,.55); padding: 16px; z-index: 11; }
+  /* scrolls if the grown-ups section makes it taller than the screen (margin: auto keeps it centred otherwise) */
+  #welcome { overflow-y: auto; align-items: normal; padding-top: 26px; }
+  #welcome .panel { margin: auto; }
   #welcome.show { display: flex; }
   #welcome .panel { position: relative; background: #fff; border-radius: 28px; padding: 20px 18px 16px; max-width: 520px; width: 100%;
     box-shadow: 0 6px 0 rgba(0,0,0,.2); color: #3b2f63; text-align: center; animation: popIn .35s; }
@@ -139,6 +142,123 @@
   .packs { margin: 14px 0 0; font-size: 15px; line-height: 1.6; }
   .packs b { display: block; font-size: 13px; color: #8a80aa; text-transform: uppercase; letter-spacing: .04em; }
   .packs.soon { margin-top: 8px; color: #8a80aa; }
+  /* 🏆 is the gift button. The strip and dot sit on top of it, so the bar keeps its size. */
+  #scoreWrap { position: relative; display: flex; }
+  #score { position: relative; }
+  #score:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.18); }
+  #score:focus-visible, .tile:focus-visible, #giftBox:focus-visible, #giftShow:focus-visible,
+  .textBtn:focus-visible, .resetBtns .mode:focus-visible { outline: 3px solid #3b2f63; outline-offset: 3px; }
+  #giftStrip { position: absolute; left: 10px; right: 12px; bottom: 5px; height: 4px; border-radius: 2px;
+    background: rgba(59,47,99,.15); pointer-events: none; transition: box-shadow .2s, background .2s; }
+  #giftStrip[hidden] { display: none; }
+  #giftFill { display: block; height: 100%; width: 0; border-radius: 2px; background: #8e4fd0; }
+  #giftPeek { position: absolute; right: -9px; top: -7px; font-size: 13px; line-height: 1; display: none; }
+  #giftStrip.near #giftPeek { display: block; animation: peek 2.4s ease-in-out infinite; }
+  #giftDot { position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; border-radius: 50%;
+    background: #e5393b; border: 3px solid #fff; animation: pulse 1.4s ease-in-out infinite; }
+  #giftDot[hidden] { display: none; }
+  /* The shelf: styled like the build picker, picture tiles only. */
+  #gifts { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(59,47,99,.55); padding: 16px; z-index: 10; }
+  #gifts.show { display: flex; }
+  #gifts .panel { position: relative; background: #fff; border-radius: 28px; padding: 14px 18px 18px;
+    max-width: 560px; width: 100%; box-shadow: 0 6px 0 rgba(0,0,0,.2); }
+  .shelfHead { display: flex; align-items: center; gap: 12px; margin: 0 44px 12px 0; }
+  #shelfScore { font-size: 24px; font-weight: 700; color: #3b2f63; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #shelfBar { position: relative; flex: 1; height: 12px; border-radius: 6px; background: rgba(59,47,99,.25); margin-right: 14px; }
+  #shelfBar[hidden] { display: none; }
+  #shelfBar i { display: block; height: 100%; border-radius: 6px; background: #8e4fd0; }
+  #shelfBar span { position: absolute; right: -14px; top: 50%; transform: translateY(-50%); font-size: 22px; line-height: 1; }
+  .rowHead { display: flex; align-items: center; gap: 10px; margin: 4px 0 8px; }
+  .rowChip { flex: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 28px; line-height: 1; border: 2px solid; }
+  .rowChip.sky { background: #dff1ff; border-color: #3d78b8; filter: drop-shadow(0 0 .5px #3d78b8); }
+  .rowChip.blocks { background: #ffe7d6; border-color: #b0561f; }
+  .rowLabel { font-size: 15px; font-weight: 600; color: #3b2f63; }
+  .caption { font-size: 13px; color: #6b6190; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 10px; margin-bottom: 8px; }
+  .tile { position: relative; min-width: 88px; min-height: 88px; padding: 0; border-radius: 20px; background: #efe9ff;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    box-shadow: 0 3px 0 rgba(0,0,0,.12); font-size: 44px; line-height: 1; }
+  .tile.on { outline: 4px solid #ffd23f; outline-offset: 0; }
+  .tile.on:focus-visible { outline: 4px solid #ffd23f; box-shadow: 0 0 0 7px #3b2f63; }
+  .tile:active { transform: scale(.95); }
+  .tile.wrapped { background: repeating-linear-gradient(45deg, #efe9ff 0 10px, #e2d8ff 10px 20px); }
+  .tile.wiggle { animation: wobble .5s; }
+  /* the next gift's progress, inside its wrapped tile (no number) */
+  .tileBar { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 10px; border-radius: 5px;
+    background: rgba(59,47,99,.25); }
+  .tileBar i { display: block; height: 100%; border-radius: 5px; background: #8e4fd0; }
+  .tile.wiggle .tileBar { animation: barPulse .4s; }
+  /* a sky picked in a challenge: 🎨 shows where it will appear */
+  #btnFree.nudge { animation: wiggle .45s 2; }
+  .thumb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 36px; }
+  .thumb.big { position: relative; width: 140px; height: 140px; border-radius: 28px; font-size: 64px;
+    box-shadow: 0 0 0 6px #fff; }
+  .sky-sunny { background: linear-gradient(#bde8ff, #effaff 72%, #7ed957 72%); }
+  .sky-night { background: radial-gradient(circle at 25% 30%, #fff 1px, transparent 2px), radial-gradient(circle at 70% 20%, #fff 1px, transparent 2px),
+    linear-gradient(#0d1b3e, #34508f 72%, #2e6b4a 72%); }
+  .sky-sea { background: linear-gradient(#5cc8f0, #1260a8 72%, #ecd08a 72%); }
+  .sky-space { background: radial-gradient(circle at 20% 25%, #fff 1px, transparent 2px), radial-gradient(circle at 80% 60%, #fff 1px, transparent 2px),
+    linear-gradient(#070720, #2a1b5e 72%, #8f8aa8 72%); }
+  .sky-dusk { background: linear-gradient(#2d1b4e, #7a3f8f 47%, #f39a52 72%, #3f7a3a 72%); }
+  /* A new gift: above everything, including ➡️ and the picker. */
+  #gift { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(59,47,99,.5); z-index: 12; visibility: hidden; opacity: 0;
+    transition: opacity .2s, visibility 0s .2s; }
+  #gift.show { visibility: visible; opacity: 1; transition: opacity .2s; }
+  .giftStage { display: grid; place-items: center; }
+  .giftStage > * { grid-area: 1 / 1; }
+  #giftBox { width: 168px; height: 168px; border-radius: 40px; background: #fff6c9; font-size: 120px; line-height: 1;
+    padding: 0; box-shadow: 0 6px 0 rgba(0,0,0,.2), 0 0 0 8px rgba(255,255,255,.7); transition: opacity .2s; }
+  #gift.show #giftBox { animation: popIn .45s ease-out, wobble 1.2s .45s ease-in-out infinite; }
+  #giftShow { display: flex; flex-direction: column; align-items: center; gap: 10px; background: none; padding: 0;
+    opacity: 0; pointer-events: none; transition: opacity .2s; }
+  #giftEmoji { font-size: 56px; line-height: 1; }
+  #giftName { font-size: 20px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); max-width: 90vw; text-align: center; }
+  /* For grown-ups, in the ❓ panel */
+  #howPoints { margin-top: 12px; text-align: left; font-size: 15px; color: #6b6190; line-height: 1.45; }
+  #howPoints summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; justify-content: center;
+    gap: 6px; font-weight: 700; border-radius: 12px; list-style-position: inside; }
+  #howPoints summary:focus-visible { outline: 3px solid #3b2f63; outline-offset: 2px; }
+  #howPoints summary::-webkit-details-marker { display: none; }
+  #howPoints summary::after { content: '▸'; color: #8e4fd0; }  /* flex hides the built-in marker */
+  #howPoints[open] summary::after { content: '▾'; }
+  #howPoints p { margin: 8px 0; }
+  #howGifts { width: 100%; border-collapse: collapse; }
+  #howGifts td { padding: 3px 6px; border-top: 1px solid #efe9ff; }
+  #howGifts td.pts { text-align: right; font-variant-numeric: tabular-nums; }
+  #howNow { font-weight: 700; color: #3b2f63; }
+  /* hidden (after the fade) once opened, so Tab can't land on the invisible 🎁 */
+  #gift.opened #giftBox { opacity: 0; visibility: hidden; pointer-events: none; animation: none;
+    transition: opacity .2s, visibility 0s .2s; }
+  #gift.opened #giftShow { opacity: 1; pointer-events: auto; }
+  #gift.opened #giftPreview { animation: popIn .4s ease-out; }
+  #giftPreview canvas { display: block; border-radius: 28px; background: #efe9ff; box-shadow: 0 0 0 6px #fff; }
+  #giftClose { position: absolute; top: calc(env(safe-area-inset-top) + 14px); right: 14px; width: 48px; height: 48px; font-size: 22px; }
+  /* Reset (grown-ups only, from ❓). */
+  .textBtn { margin-top: 10px; min-height: 44px; padding: 6px 14px; background: none; color: #6b6190;
+    font-size: 14px; text-decoration: underline; border-radius: 12px; }
+  #reset { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(59,47,99,.6); padding: 16px; z-index: 13; }
+  #reset.show { display: flex; }
+  #reset .panel { background: #fff; border-radius: 24px; padding: 18px; max-width: 420px; width: 100%;
+    color: #3b2f63; text-align: center; box-shadow: 0 6px 0 rgba(0,0,0,.2); }
+  #resetText { margin: 0 0 14px; font-size: 18px; line-height: 1.4; }
+  .resetBtns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .resetBtns .mode { min-height: 52px; font-size: 17px; font-weight: 700; justify-content: center; }
+  .resetBtns .erase { background: #fde2e2; color: #a32222; }
+  @keyframes peek { 0%, 70%, 100% { transform: rotate(0); } 80% { transform: rotate(-14deg); } 90% { transform: rotate(14deg); } }
+  @keyframes pulse { 50% { transform: scale(1.25); } }
+  @keyframes barPulse { 50% { transform: scale(1.08); } }
+  @keyframes wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-7deg) scale(1.04); } 75% { transform: rotate(7deg) scale(1.04); } }
+  /* Reduced motion: the gift feature only crossfades (no wobble, pop, pulse or wiggle). */
+  @media (prefers-reduced-motion: reduce) {
+    #giftStrip.near #giftPeek, #giftDot, #gift.show #giftBox, #gift.opened #giftPreview, .tile.wiggle,
+    .tile.wiggle .tileBar, #btnFree.nudge { animation: none; }
+    .tile.wiggle .tileBar i { background: #b98ae8; }  /* a colour change, not motion */
+    #btnFree.nudge { box-shadow: 0 0 0 4px #ffd23f, 0 3px 0 rgba(0,0,0,.18); }
+  }
   @keyframes popIn { 0% { transform: scale(0); } 70% { transform: scale(1.15); } }
   @keyframes bump { 40% { transform: scale(1.3); } }
   @keyframes wiggle { 50% { transform: scale(1.1) rotate(-3deg); } }
@@ -151,7 +271,11 @@
   <div class="group">
     <button id="btnChallenge" class="tool" aria-label="Challenges" title="Challenges">🎯</button>
     <button id="btnFree" class="tool" aria-label="Free build" title="Free build">🎨</button>
-    <div id="score" role="status" aria-label="Score" title="Score">🏆<span id="scoreN">0</span></div>
+    <div id="scoreWrap">
+      <button id="score" aria-label="Score 0. Gifts" title="Gifts"><span id="scoreIcon" aria-hidden="true">🏆</span><span id="scoreN">0</span><span id="giftDot" hidden></span></button>
+      <!-- Progress to the next gift: inside the pill's bottom edge, so it adds no height -->
+      <div id="giftStrip" role="progressbar" aria-label="Next gift" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0"><i id="giftFill"></i><span id="giftPeek" aria-hidden="true">🎁</span></div>
+    </div>
   </div>
   <div id="palette" role="group" aria-label="Colors"></div>
   <div class="group">
@@ -189,8 +313,51 @@
     </div>
     <p class="packs"><b>Packs</b><span id="welcomePacks"></span></p>
     <p class="packs soon"><b>Coming soon</b>🎄 Christmas · 🚗 Vehicles</p>
+    <!-- For grown-ups: behind a text confirmation, so a pre-reader can't wipe progress -->
+    <details id="howPoints">
+      <summary>For grown-ups: how 🏆 points work</summary>
+      <p>Every finished build earns points: 10 per piece, more for 🟡/🔴 builds, +50 the first time, +200 for finishing a whole pack. Replays still score. Points unlock surprise 🎁 gifts. Kids just see a filling bar, never a number to chase.</p>
+      <table id="howGifts"></table>
+      <p id="howNow"></p>
+    </details>
+    <button id="resetOpen" class="textBtn">Reset progress…</button>
     <button id="welcomeClose" class="tool" aria-label="Close">✖️</button>
   </div>
+</div>
+
+<div id="reset" role="alertdialog" aria-modal="true" aria-labelledby="resetText">
+  <div class="panel">
+    <p id="resetText">Erase the 🏆 score, ✅ finished builds and 🎁 gifts? This can't be undone.</p>
+    <div class="resetBtns">
+      <button id="resetKeep" class="mode main">Keep everything</button>
+      <button id="resetErase" class="mode erase">Erase</button>
+    </div>
+  </div>
+</div>
+
+<!-- 🏆 opens the gift shelf: skies for free build and looks for the blocks -->
+<div id="gifts" role="dialog" aria-modal="true" aria-label="Gifts">
+  <div class="panel">
+    <div class="shelfHead">
+      <span id="shelfScore"></span>
+      <div id="shelfBar" role="progressbar" aria-label="Next gift" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="shelfFill"></i><span aria-hidden="true">🎁</span></div>
+    </div>
+    <div class="rowHead"><span class="rowChip sky" aria-hidden="true">☁️</span>
+      <div><div class="rowLabel">Skies</div><div class="caption">Shows in 🎨 free build</div></div></div>
+    <div id="skyTiles" class="tiles" role="group" aria-label="Skies"></div>
+    <div class="rowHead"><span class="rowChip blocks" aria-hidden="true">🧱</span><div class="rowLabel">Block looks</div></div>
+    <div id="skinTiles" class="tiles" role="group" aria-label="Block looks"></div>
+    <button id="giftsClose" class="tool" aria-label="Close">✖️</button>
+  </div>
+</div>
+
+<!-- A new gift: a wrapped 🎁 to tap open, then a preview of what's inside -->
+<div id="gift" role="dialog" aria-modal="true" aria-label="New gift">
+  <div class="giftStage">
+    <button id="giftBox" aria-label="Open your gift">🎁</button>
+    <button id="giftShow" aria-label="Close" tabindex="-1"><span id="giftPreview"></span><span id="giftEmoji"></span><span id="giftName"></span></button>
+  </div>
+  <button id="giftClose" class="tool" aria-label="Close">✖️</button>
 </div>
 
 <script src="geometry.js?v=dev"></script>
