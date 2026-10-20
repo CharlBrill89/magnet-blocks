@@ -347,6 +347,21 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
       await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
     }
 
+    // 9c. every shape can be binned, at every size: wide blocks (trapezoid, arch) are stopped
+    // short of the corner by the screen edge, so their centre never reaches the bin
+    for (const [w, hgt] of [[420, 800], [768, 1024], [1920, 1080]]) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await page.waitForTimeout(100);
+      for (const shape of ['square', 'triangle', 'quarter', 'trapezoid', 'arch']) {
+        const n = (await pieces()).length;
+        await dragFromTray(shape, -2.5, 0.5);
+        const spawned = await pieces();
+        assert.equal(spawned.length, n + 1);
+        await dragPieceTo(spawned[spawned.length - 1].id, await binPoint(), 250);
+        assert.equal((await pieces()).length, n, `a ${shape} dropped on the bin is deleted at ${w}x${hgt}`);
+      }
+    }
+
     // 10. short screens: every build's whole outline is visible below the card, and the bar fits
     const choose = async (i) => {
       if (!(await page.isVisible('#picker'))) await page.click('#cardEmoji');

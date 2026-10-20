@@ -285,9 +285,13 @@
     }
     piece.x = w.x + d.offX; piece.y = w.y + d.offY;
     clampToView(piece);
-    // The bin hit test uses the block's centre, not the finger (TOUCH_LIFT shifts the finger).
-    const b = binGeom(), c = w2s(piece.x, piece.y);
-    if (d.moved && Math.hypot(c.x - b.x, c.y - b.y) <= b.hit) {
+    // The bin hit test uses the block, not the finger (TOUCH_LIFT shifts the finger): its
+    // centre near the bin, or the block covering the bin's centre. The second case is for wide
+    // blocks (trapezoid, arch), which clampToView stops short of the corner, so their centre
+    // can never get within BIN_HIT on bigger screens.
+    const b = binGeom(), c = w2s(piece.x, piece.y), bw = s2w(b.x, b.y);
+    const overBin = Math.hypot(c.x - b.x, c.y - b.y) <= b.hit || !!G.hitTest([piece], bw.x, bw.y, 0);
+    if (d.moved && overBin) {
       if (d.binSince === null) d.binSince = now;
     } else d.binSince = null;
     if (updateBinArm(d, now)) { state.glow = null; d.contactKey = null; return; } // no snapping over an armed bin
