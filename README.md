@@ -156,10 +156,11 @@ npm start            # node scripts/serve.js 8000 → http://localhost:8000/
 # or: python3 -m http.server
 ```
 
-**Deploying:** `.github/workflows/pages.yml` runs the unit tests and publishes the
-site to GitHub Pages on every push to `main`. First set *Settings → Pages → Source* to
-*GitHub Actions*. The workflow stamps the script URLs in `index.html` with the
-commit hash (`game.js?v=…`), so browsers never mix a cached old script with a new page. On Vercel, import the repo as a static site with no build command.
+**Deploying:** the site is hosted on Vercel. Pushes to `main` go to production and every
+other branch or PR gets a preview URL. `vercel.json` runs the unit tests and then
+`npm run build`, which copies the site into `_site/` and stamps the script URLs in
+`index.html` with the commit hash (`game.js?v=…`), so browsers never mix a cached old
+script with a new page. A failing unit test fails the deploy.
 
 ## Code layout
 

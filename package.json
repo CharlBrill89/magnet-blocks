@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "start": "node scripts/serve.js 8000",
+    "build": "node scripts/build.js",
     "test:unit": "node --test tests/geometry.test.js",
     "test:e2e": "node tests/smoke.js",
     "test": "npm run test:unit && npm run test:e2e"
