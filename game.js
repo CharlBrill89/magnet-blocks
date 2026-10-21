@@ -20,7 +20,7 @@
     nextId: 1, color: G.COLORS[3].hex, selected: null,
     mode: 'free', challengeIdx: 0, won: false,
     drag: null, glow: null, particles: [], muted: false,
-    lastBinned: null, binUndoUntil: 0,
+    lastBinned: null, binUndoUntil: 0, landed: false,
     score: Number(load('magnet-blocks-score', 0)) || 0, lastGain: 0,
   };
   state.pieces = state.boards.free;
@@ -170,13 +170,58 @@
     p.x = r.x; p.y = r.y;
     return r;
   }
+  // The part of the world blocks may use: x within ±halfW, y up to top.
+  function viewBounds() {
+    return { halfW: view.W / 2 / view.s, top: (view.groundY - view.topReserve) / view.s };
+  }
+
+  // Blocks never overlap: a block let go inside another moves to the nearest free spot
+  // (on top, if that's as near), and snaps there. Then loose blocks fall (see settle).
+  // Returns true if `piece` itself is falling, so its sound waits for the landing.
+  function place(piece) {
+    if (G.overlapsAny(piece, others(piece))) {
+      const spot = G.findFreeSpot(piece, others(piece), viewBounds());
+      if (spot) { piece.x = spot.x; piece.y = spot.y; applySnap(piece); }
+    }
+    return settle().some((m) => m.piece === piece);
+  }
+  // Gravity: blocks that aren't held up by the ground, another block or a magnet fall.
+  // Their positions change at once; they're drawn falling into place (see fallOffset).
+  // A board passed in (a saved one, on load) settles without the animation.
+  const FALL_MS = 170; // per √unit, so a long fall speeds up like a real one
+  function settle(board) {
+    const moves = G.settle(board || state.pieces);
+    const now = performance.now();
+    for (const m of moves) {
+      const h = Math.hypot(m.fromX - m.piece.x, m.fromY - m.piece.y);
+      m.piece.fall = reducedMotion() || board ? null : { fromX: m.fromX, fromY: m.fromY, t0: now, dur: FALL_MS * Math.sqrt(h) };
+    }
+    return moves;
+  }
+  // Offset (world units) from a falling block's resting place to where it's drawn.
+  function fallOffset(p, now) {
+    const f = p.fall;
+    if (!f) return null;
+    const k = (now - f.t0) / f.dur;
+    if (k >= 1) {
+      p.fall = null; p.pop = now;
+      if (!state.landed) { // one landing sound per frame: a thud on the ground, a clack on a block
+        state.landed = true;
+        if (G.pieceBounds(p).minY < 0.01) sfx.drop(); else sfx.click();
+      }
+      return null;
+    }
+    const e = 1 - k * k; // starts slow, lands fast
+    return { x: (f.fromX - p.x) * e, y: (f.fromY - p.y) * e };
+  }
 
   function rotatePiece(piece) {
     piece.rot = (piece.rot + 1) % 4;
     clampToView(piece);
     const r = applySnap(piece);
     piece.pop = performance.now();
-    if (r.contact) sfx.click(); else sfx.rotate();
+    if (place(piece)) sfx.rotate();
+    else if (r.contact) sfx.click(); else sfx.rotate();
     if (r.contact) state.glow = { x: r.contact.x, y: r.contact.y, fade: performance.now() };
   }
 
@@ -218,6 +263,7 @@
     restore([state.lastBinned]);
     state.selected = state.pieces[state.pieces.length - 1] || null;
     state.lastBinned = null; state.binUndoUntil = 0;
+    if (state.selected) place(state.selected);
     sfx.drop();
     afterChange();
   }
@@ -249,6 +295,7 @@
       if (!piece) { state.selected = null; return; }
       wasSelected = state.selected === piece;
       offX = piece.x - w.x; offY = piece.y - w.y;
+      piece.fall = null;
       state.pieces.splice(state.pieces.indexOf(piece), 1);
       state.pieces.push(piece);
       state.selected = piece;
@@ -327,9 +374,11 @@
       removePiece(piece, true); state.glow = null; afterChange(); return;
     }
     if (!cancelled && updateBinArm(d, performance.now())) {
-      state.lastBinned = snapshot([piece])[0];
+      // Undo puts it back where it was picked up (a new block falls from the bin's corner).
+      state.lastBinned = Object.assign(snapshot([piece])[0], d.fromTray ? {} : d.start);
       state.binUndoUntil = performance.now() + BIN_UNDO;
       removePiece(piece); sfx.pop();
+      settle();
       const b = binGeom();
       burst(b.x, b.y, 10, [piece.color, '#fff'], 160);
       state.glow = null; afterChange(); return;
@@ -340,14 +389,14 @@
       piece.x = mid.x + (Math.random() - 0.5) * 2; piece.y = mid.y; piece.rot = 0;
       clampToView(piece);
       const r = applySnap(piece);
-      if (r.contact) sfx.click(); else sfx.drop();
+      if (!place(piece)) { if (r.contact) sfx.click(); else sfx.drop(); }
       piece.pop = performance.now();
     } else if (!d.moved && performance.now() - d.t0 < TAP_MS && !d.fromTray) {
       // First tap selects (so a colour can be picked); tapping the selected block turns it.
       if (d.wasSelected) rotatePiece(piece);
       else { piece.pop = performance.now(); sfx.select(); }
     } else {
-      sfx.drop();
+      if (!place(piece)) sfx.drop();
       if (state.glow) state.glow.fade = performance.now();
       piece.pop = performance.now();
     }
@@ -489,6 +538,8 @@
     const u = clr.undo; if (!u) return;
     endClearUndo();
     restore(u.snaps, u.board);
+    // Blocks added since the clear stay; anything they're in the way of moves aside.
+    if (G.separate(u.board, viewBounds()) || u.board.length > u.snaps.length) settle();
     sfx.drop();
     afterChange();
   }
@@ -1034,7 +1085,8 @@
     let k = popScale(p, now);
     const armed = d && d.piece === p && d.binArmed; // shrinks "into" the armed bin
     if (armed) k *= 0.6;
-    const poly = G.worldPolygon(p).map((v) => w2s(p.x + (v.x - p.x) * k, p.y + (v.y - p.y) * k));
+    const off = fallOffset(p, now) || { x: 0, y: 0 };
+    const poly = G.worldPolygon(p).map((v) => w2s(p.x + (v.x - p.x) * k + off.x, p.y + (v.y - p.y) * k + off.y));
     if (state.selected === p) {
       ctx.save();
       pathOf(poly); ctx.lineJoin = 'round';
@@ -1309,7 +1361,7 @@
   let frameNow = last, motionOff = false; // read by the sky and block-look drawing
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    frameNow = now; motionOff = reducedMotion();
+    frameNow = now; motionOff = reducedMotion(); state.landed = false;
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     drawBackground(now);
     drawTarget();
@@ -1334,6 +1386,10 @@
   updateDot();
   { const saved = load(FREE_KEY, []); if (Array.isArray(saved)) restore(saved, state.boards.free); }
   layout();
+  // A free build saved before blocks stopped overlapping can have blocks hidden under
+  // each other, or floating: pull them apart and let them settle.
+  G.separate(state.boards.free, viewBounds()); settle(state.boards.free);
+  save(FREE_KEY, snapshot(state.boards.free));
   // First visit: a blank board and the welcome. After that: straight into challenges.
   if (load('magnet-blocks-welcomed', false)) { modeChosen = true; setMode('challenge'); } else showWelcome();
   requestAnimationFrame(frame);
