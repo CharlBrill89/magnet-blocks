@@ -8,6 +8,7 @@ const { chromium } = require('playwright');
 const { createServer } = require('../scripts/serve.js');
 
 const SHOTS = process.env.SHOTS;
+const G_minY = (p) => require('../geometry.js').pieceBounds(p).minY;
 const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected ${a} ≈ ${b}`);
 
 (async () => {
@@ -250,14 +251,14 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     assert.equal(await page.locator('#next.show').count(), 0);
     assert.match(await page.textContent('#cardTitle'), /Tower/);
 
-    // 8b. the outline is shown behind the build, but pieces don't jump into it
+    // 8b. the outline is shown behind the build, but pieces don't jump into it (or rest on it)
     await pickForNext('#2fb65a');
     const sl = await page.evaluate(() => window.magnetGame.slots());
     assert.equal(sl.length, 5);                           // tower
     const top = sl.find((q) => q.shape === 'triangle');
     await dragFromTray('triangle', top.x + 0.4, top.y + 0.3);
     ps = await pieces();
-    near(ps[0].x, top.x + 0.4); near(ps[0].y, top.y + 0.3);  // stays where it was dropped
+    near(ps[0].x, top.x + 0.4); near(ps[0].y, 0.5);        // falls straight down to the grass
     assert.equal(ps[0].color, '#2fb65a');                 // and keeps its colour
     await holdClear();
     await page.waitForTimeout(300);
@@ -411,6 +412,50 @@ const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) <= eps, `expected $
     }
     assert.equal(await page.evaluate(() => window.magnetGame.state.won), true, 'Tower finished at 568x320');
     await shot('08-tower-won-568x320');
+
+    // 11b. #37: on a phone, blocks never end up hidden on top of each other, and loose blocks fall
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.click('#btnFree');
+    await holdClear();
+    await page.waitForTimeout(100);
+    const overlapping = () => page.evaluate(() => {
+      const ps = window.magnetGame.state.pieces, G = window.MagnetGeometry, out = [];
+      for (const a of ps) for (const b of ps) if (a.id < b.id && G.overlaps(a, b)) out.push([a.id, b.id]);
+      return out;
+    });
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    const tapTray = async (shape) => {
+      const t = await tray(shape);
+      await touch('touchStart', t.x, t.y); await touch('touchEnd');
+      await page.waitForTimeout(80);
+    };
+    for (let i = 0; i < 4; i++) await tapTray('square');
+    await tapTray('triangle');
+    ps = await pieces();
+    assert.equal(ps.length, 5);
+    assert.deepEqual(await overlapping(), [], 'tapping a tray shape again and again never hides blocks under each other');
+    const settled = await page.evaluate(() =>
+      window.MagnetGeometry.settle(window.magnetGame.state.pieces.map((p) => ({ ...p }))).length);
+    assert.equal(settled, 0, 'nothing is left floating');
+    // dragging one block (by touch) moves that block only
+    const mover = ps[ps.length - 1], still = ps.filter((p) => p.id !== mover.id).map(fields);
+    const m0 = await toScreen(mover.x, mover.y), m1 = await toScreen(-3.2, 0.8);
+    await touch('touchStart', m0.x, m0.y);
+    for (let i = 1; i <= 8; i++) await touch('touchMove', m0.x + (m1.x - m0.x) * i / 8, m0.y + (m1.y - m0.y) * i / 8);
+    await touch('touchEnd');
+    ps = await pieces();
+    const after = ps.filter((p) => p.id !== mover.id).map(fields);
+    assert.deepEqual(after, still, 'only the dragged block moved');
+    // a block dropped right onto another one ends up on top of it, not inside it
+    const base = ps.find((p) => p.shape === 'square' && Math.abs(G_minY(p)) < 0.01 && p.id !== mover.id) || ps[0];
+    const b0 = await toScreen(mover.x, mover.y), b1 = await toScreen(base.x, base.y - 1); // touch lifts the block 1 unit
+    await touch('touchStart', b0.x, b0.y);
+    for (let i = 1; i <= 8; i++) await touch('touchMove', b0.x + (b1.x - b0.x) * i / 8, b0.y + (b1.y - b0.y) * i / 8);
+    await touch('touchEnd');
+    assert.deepEqual(await overlapping(), [], 'dropped onto a block: no overlap');
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+    await page.waitForTimeout(600); // let the falls finish
+    await shot('09-no-overlap-375x667');
 
     // 12. 🎁 score gifts, each in a fresh browser profile on a 375×667 phone.
     // seed: localStorage values (JSON-encoded) set before the game loads.

@@ -86,6 +86,104 @@ test('rotated arch sits on the ground with feet down', () => {
   near(r.y, 0.5);
 });
 
+const noOverlaps = (ps) => {
+  for (const a of ps) for (const b of ps) if (a !== b) assert.ok(!G.overlaps(a, b), `${a.id} overlaps ${b.id}`);
+};
+
+test('overlap: touching blocks do not overlap, blocks inside each other do', () => {
+  const a = piece('square', 0, 0.5, 0, 'a');
+  assert.equal(G.overlaps(a, piece('square', 1, 0.5, 0, 'b')), false);      // side by side
+  assert.equal(G.overlaps(a, piece('square', 0.5, 1.5, 0, 'c')), false);    // on top, half over
+  assert.equal(G.overlaps(a, piece('square', 1.005, 0.5, 0, 'd')), false);  // a hair apart
+  assert.equal(G.overlaps(a, piece('square', 0.3, 0.5, 0, 'e')), true);
+  assert.equal(G.overlaps(a, piece('square', 0, 0.5, 0, 'f')), true);       // exactly stacked
+  assert.equal(G.overlaps(a, piece('triangle', 0, 1.45, 0, 'g')), true);    // dug in from above
+  // a triangle's slope and a quarter's curve: rotated pieces filling one square don't clash
+  assert.equal(G.overlaps(piece('triangle', 0, 0.5, 0, 'h'), piece('triangle', 0.5, 0.5, 2, 'i')), false);
+  assert.equal(G.overlaps(piece('quarter', 0, 0.5, 0, 'j'), piece('quarter', 1, 0.5, 1, 'k')), false);
+});
+
+test('snapping never pulls a block into another one', () => {
+  const board = [piece('square', 0, 0.5, 0, 'a'), piece('square', 1, 0.5, 0, 'b'),
+    piece('triangle', 0, 1.5, 0, 'c'), piece('arch', 2.5, 0.5, 0, 'd'), piece('quarter', 1, 1.5, 1, 'e')];
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  let tried = 0;
+  for (let i = 0; i < 400; i++) {
+    const shape = G.SHAPE_ORDER[i % 5];
+    const d = piece(shape, -1.5 + rnd() * 5, rnd() * 3, i % 4, 'drag');
+    if (G.overlapsAny(d, board)) continue; // only drops that start out free
+    tried++;
+    const r = G.snapPiece(d, board);
+    assert.ok(!G.overlapsAny({ ...d, x: r.x, y: r.y }, board), `${shape} at ${d.x},${d.y} snapped into a block`);
+  }
+  assert.ok(tried > 100);
+});
+
+test('a block let go inside another moves to the nearest free spot, preferring on top', () => {
+  const a = piece('square', 0, 0.5, 0, 'a');
+  const spot = G.findFreeSpot(piece('square', 0, 0.5, 0, 'd'), [a]);
+  near(spot.x, 0); near(spot.y, 1.5);
+  // nudged out sideways, then the magnets line it up flush
+  const e = piece('square', 0.8, 0.5, 0, 'e');
+  Object.assign(e, G.findFreeSpot(e, [a]));
+  assert.ok(!G.overlaps(e, a));
+  const r = G.snapPiece(e, [a]);
+  near(r.x, 1); near(r.y, 0.5);
+  // inside the view only: no room above a block at the ceiling, so it goes beside it
+  const low = G.findFreeSpot(piece('square', 0, 0.5, 0, 'f'), [a], { halfW: 4.5, top: 1 });
+  assert.ok(Math.abs(low.x) >= 1 - 1e-6 && G.pieceBounds({ ...a, ...low }).maxY <= 1 + 1e-6);
+});
+
+test('gravity: a loose block falls to the ground', () => {
+  const p = piece('triangle', 2, 3.2, 0, 'p');
+  const moves = G.settle([p]);
+  near(p.y, 0.5); near(p.x, 2);
+  assert.equal(moves.length, 1);
+  near(moves[0].fromY, 3.2);
+});
+
+test('gravity: a block dropped above another lands on it and snaps', () => {
+  const a = piece('square', 0, 0.5, 0, 'a');
+  const p = piece('square', 0.2, 4.3, 0, 'p');
+  G.settle([a, p]);
+  near(p.x, 0); near(p.y, 1.5);
+  near(a.y, 0.5);
+});
+
+test('gravity: magnets hold a block hanging off the side', () => {
+  const robot = G.targetSlots(G.CHALLENGES.find((c) => c.id === 'robot'));
+  const arms = robot.filter((q) => q.y > 1 && q.shape === 'square' && Math.abs(q.x) > 1);
+  assert.equal(arms.length, 2); // only corner to corner with the body
+  assert.equal(G.settle(robot).length, 0);
+});
+
+test('gravity: every build stands as it is', () => {
+  for (const ch of G.CHALLENGES) {
+    const slots = G.targetSlots(ch);
+    assert.equal(G.settle(slots).length, 0, ch.id + ' stays standing');
+  }
+});
+
+test('gravity: take a block out of a tower and the blocks above fall together', () => {
+  const t = [0.5, 1.5, 2.5, 3.5].map((y, i) => piece('square', 0, y, 0, 's' + i));
+  const tip = piece('triangle', 0, 4.5, 0, 'tip');
+  const board = [t[0], t[2], t[3], tip]; // t[1] taken out
+  G.settle(board);
+  near(t[2].y, 1.5); near(t[3].y, 2.5); near(tip.y, 3.5);
+  noOverlaps(board);
+});
+
+test('separate + settle: blocks stacked on top of each other end up side by side or on top', () => {
+  const board = [0, 1, 2, 3].map((i) => piece('square', 0.1 * (i % 2), 3, 0, 'q' + i));
+  board.push(piece('triangle', 0, 3, 0, 'tri'));
+  const n = G.separate(board, { halfW: 4.5, top: 7 });
+  assert.ok(n >= 4);
+  G.settle(board);
+  noOverlaps(board);
+  for (const p of board) assert.ok(G.pieceBounds(p).minY >= -1e-6);
+});
+
 test('connectivity needs coincident snap points', () => {
   const a = piece('square', 0, 0.5, 0, 'a');
   const b = piece('square', 1, 0.5, 0, 'b');

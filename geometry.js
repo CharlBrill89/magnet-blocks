@@ -19,6 +19,8 @@
   const SNAP_THRESHOLD = 0.3;
   /** Snap points closer than this count as "touching" (pieces are connected). */
   const CONTACT_EPS = 0.06;
+  /** Blocks may dig into each other this far (world units) before they count as overlapping. */
+  const OVERLAP_TOL = 0.01;
 
   function arc(cx, cy, r, a0, a1, n) {
     const pts = [];
@@ -82,6 +84,26 @@
       poly: recenter(raw.poly),
       snap: recenter(raw.snap),
     };
+    SHAPES[key].samples = shapeSamples(SHAPES[key].poly);
+  }
+
+  // Points used to test two blocks for overlap: every vertex, points at most 0.05 apart
+  // along each edge, and a 0.1 grid inside. Local coordinates, like `poly`.
+  function shapeSamples(poly) {
+    const pts = [];
+    for (let i = 0; i < poly.length; i++) {
+      const [ax, ay] = poly[i], [bx, by] = poly[(i + 1) % poly.length];
+      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.05));
+      for (let k = 0; k < n; k++) pts.push([ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n]);
+    }
+    const wp = poly.map(([x, y]) => ({ x, y }));
+    const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
+    for (let x = Math.min(...xs) + 0.05; x < Math.max(...xs); x += 0.1) {
+      for (let y = Math.min(...ys) + 0.05; y < Math.max(...ys); y += 0.1) {
+        if (pointInPolygon(x, y, wp)) pts.push([x, y]);
+      }
+    }
+    return pts;
   }
 
   const COLORS = [
@@ -271,8 +293,9 @@
    * Magnet + ground snapping for a dragged piece.
    * Finds the nearest pair of snap points (dragged piece vs. others) within
    * `threshold` and moves the piece so they coincide. A snap that would sink
-   * the piece below the ground is skipped; then the piece rests on the ground
-   * (y = 0) and may still slide sideways onto a neighbour's snap point.
+   * the piece below the ground, or push it into another block, is skipped; then
+   * the piece rests on the ground (y = 0) and may still slide sideways onto a
+   * neighbour's snap point.
    * Returns { x, y, kind: 'magnet'|'ground'|'none', contact, key, grounded }.
    * `contact` is the world point where the magnets meet (or null).
    */
@@ -280,11 +303,9 @@
     if (threshold === undefined) threshold = SNAP_THRESHOLD;
     const pts = worldSnapPoints(piece);
     const minY = pieceBounds(piece).minY;
-    const otherPts = [];
-    for (const o of others) {
-      if (o === piece || o.id === piece.id) continue;
-      otherPts.push({ id: o.id, pts: worldSnapPoints(o) });
-    }
+    const rest = others.filter((o) => o !== piece && o.id !== piece.id);
+    const otherPts = rest.map((o) => ({ id: o.id, pts: worldSnapPoints(o) }));
+    const free = (dx, dy) => !overlapsAny(moved(piece, dx, dy), rest);
 
     const cands = [];
     for (const o of otherPts) {
@@ -298,7 +319,7 @@
     }
     cands.sort((p, q) => p.d - q.d);
     for (const c of cands) {
-      if (minY + c.dy >= -EPS) {
+      if (minY + c.dy >= -EPS && free(c.dx, c.dy)) {
         return {
           x: piece.x + c.dx, y: piece.y + c.dy, kind: 'magnet',
           contact: { x: c.b.x, y: c.b.y }, key: c.key,
@@ -310,18 +331,19 @@
     if (minY <= threshold) {
       // Rest on the ground; optionally slide sideways to meet a neighbour.
       const dy = -minY;
-      let best = null;
+      const slides = [];
       for (const o of otherPts) {
         for (const a of pts) {
           for (const b of o.pts) {
             const ddx = b.x - a.x;
-            if (Math.abs(b.y - (a.y + dy)) <= 0.1 && Math.abs(ddx) <= threshold &&
-                (!best || Math.abs(ddx) < Math.abs(best.dx))) {
-              best = { dx: ddx, b, key: o.id + ':' + b.i + ':' + a.i };
+            if (Math.abs(b.y - (a.y + dy)) <= 0.1 && Math.abs(ddx) <= threshold) {
+              slides.push({ dx: ddx, b, key: o.id + ':' + b.i + ':' + a.i });
             }
           }
         }
       }
+      slides.sort((p, q) => Math.abs(p.dx) - Math.abs(q.dx));
+      const best = slides.find((c) => free(c.dx, dy));
       if (best) {
         return {
           x: piece.x + best.dx, y: piece.y + dy, kind: 'magnet',
@@ -331,6 +353,161 @@
       return { x: piece.x, y: piece.y + dy, kind: 'ground', contact: null, key: 'ground', grounded: true };
     }
     return { x: piece.x, y: piece.y, kind: 'none', contact: null, key: null, grounded: false };
+  }
+
+  // ------------------------------------------------------------------ overlap
+
+  function moved(piece, dx, dy) {
+    return Object.assign({}, piece, { x: piece.x + dx, y: piece.y + dy });
+  }
+
+  function worldSamples(piece) {
+    return SHAPES[piece.shape].samples.map((p) => toWorld(piece, p));
+  }
+
+  /** Do two blocks overlap by more than OVERLAP_TOL? Blocks that only touch don't. */
+  function overlaps(a, b) {
+    const ba = pieceBounds(a), bb = pieceBounds(b);
+    if (ba.maxX - OVERLAP_TOL <= bb.minX || bb.maxX - OVERLAP_TOL <= ba.minX ||
+        ba.maxY - OVERLAP_TOL <= bb.minY || bb.maxY - OVERLAP_TOL <= ba.minY) return false;
+    const inside = (p, q, box) => {
+      const poly = worldPolygon(q);
+      return worldSamples(p).some((s) => s.x > box.minX && s.x < box.maxX && s.y > box.minY && s.y < box.maxY &&
+        pointInPolygon(s.x, s.y, poly) && distToPolygon(s.x, s.y, poly) > OVERLAP_TOL);
+    };
+    return inside(a, b, bb) || inside(b, a, ba);
+  }
+
+  function overlapsAny(piece, others) {
+    return others.some((o) => o !== piece && o.id !== piece.id && overlaps(piece, o));
+  }
+
+  /**
+   * The nearest spot (at most `maxR` away) where `piece` overlaps none of `others`,
+   * stays above the ground and inside `bounds` ({ halfW, top }, optional).
+   * Upward moves win ties, so a block dropped onto another ends up on top of it.
+   * Returns { x, y }, or null if there's no room.
+   */
+  function findFreeSpot(piece, others, bounds, maxR) {
+    if (maxR === undefined) maxR = 8;
+    const ok = (dx, dy) => {
+      const q = moved(piece, dx, dy), b = pieceBounds(q);
+      if (b.minY < -EPS) return false;
+      if (bounds && (b.minX < -bounds.halfW - EPS || b.maxX > bounds.halfW + EPS || b.maxY > bounds.top + EPS)) return false;
+      return !overlapsAny(q, others);
+    };
+    if (ok(0, 0)) return { x: piece.x, y: piece.y };
+    const dirs = [];
+    for (let k = 0; k < 24; k++) {
+      const a = Math.PI / 2 + (k % 2 ? -1 : 1) * Math.ceil(k / 2) * (Math.PI / 12); // up first, then fanning out
+      dirs.push([Math.cos(a), Math.sin(a)]);
+    }
+    for (let r = 0.05; r <= maxR + EPS; r += 0.05) {
+      for (const [ux, uy] of dirs) {
+        const dx = ux * r, dy = uy * r;
+        if (ok(dx, dy)) return { x: piece.x + dx, y: piece.y + dy };
+      }
+    }
+    return null;
+  }
+
+  // ------------------------------------------------------------------ gravity
+
+  /** How far a group of blocks can fall straight down before it lands on the ground or another block. */
+  function dropDistance(group, others) {
+    const ground = Math.min(...group.map((p) => pieceBounds(p).minY));
+    if (ground <= EPS) return 0;
+    const near = others.filter((o) => {
+      const b = pieceBounds(o);
+      return group.some((p) => { const a = pieceBounds(p); return b.maxX > a.minX && b.minX < a.maxX && b.minY < a.maxY; });
+    });
+    const hits = (t) => group.some((p) => overlapsAny(moved(p, 0, -t), near));
+    if (hits(0)) return 0;
+    const STEP = 0.04;
+    let lo = 0;
+    for (let t = STEP; ; t += STEP) {
+      if (t >= ground) { if (!hits(ground)) return ground; t = ground; }
+      if (hits(t)) {
+        let hi = t;
+        while (hi - lo > 1e-4) { const m = (lo + hi) / 2; if (hits(m)) hi = m; else lo = m; }
+        return lo;
+      }
+      lo = t;
+    }
+  }
+
+  /**
+   * Gravity with magnets. Blocks joined by their magnets (see components()) move as one
+   * group. A group that isn't resting on the ground or on another block falls straight
+   * down until it lands, then its magnets snap it to what it landed on. Groups that are
+   * held up by a magnet (like a block hanging off the side of a tower) stay put, so
+   * every build stays standing.
+   * Moves the pieces in place. Returns [{ piece, fromX, fromY }] for each piece that moved.
+   */
+  function settle(pieces, threshold) {
+    if (threshold === undefined) threshold = SNAP_THRESHOLD;
+    const from = new Map();
+    for (let round = 0; round < 4 * pieces.length + 4; round++) {
+      const groups = components(pieces)
+        .map((g) => ({ g, minY: Math.min(...g.map((p) => pieceBounds(p).minY)) }))
+        .sort((a, b) => a.minY - b.minY);
+      let fell = false;
+      for (const { g } of groups) {
+        const others = pieces.filter((p) => g.indexOf(p) < 0);
+        const d = dropDistance(g, others);
+        if (d <= 1e-3) continue;
+        for (const p of g) { if (!from.has(p)) from.set(p, { x: p.x, y: p.y }); p.y -= d; }
+        landingSnap(g, others, threshold);
+        fell = true;
+        break; // lower groups first, then look again: what fell may now hold others up
+      }
+      if (!fell) break;
+    }
+    const out = [];
+    for (const [piece, f] of from) {
+      if (Math.abs(piece.x - f.x) > EPS || Math.abs(piece.y - f.y) > EPS) out.push({ piece, fromX: f.x, fromY: f.y });
+    }
+    return out;
+  }
+
+  // After a fall: line the group's nearest magnet up with what it landed on, if that
+  // doesn't push it into anything or below the ground.
+  function landingSnap(group, others, threshold) {
+    const cands = [];
+    for (const p of group) {
+      for (const a of worldSnapPoints(p)) {
+        for (const o of others) {
+          for (const b of worldSnapPoints(o)) {
+            const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+            if (d <= threshold) cands.push({ dx, dy, d });
+          }
+        }
+      }
+    }
+    cands.sort((p, q) => p.d - q.d);
+    for (const c of cands) {
+      const ok = group.every((p) => {
+        const q = moved(p, c.dx, c.dy);
+        return pieceBounds(q).minY >= -EPS && !overlapsAny(q, others);
+      });
+      if (ok) { for (const p of group) { p.x += c.dx; p.y += c.dy; } return; }
+    }
+  }
+
+  /**
+   * Tidies a whole board: moves each block that overlaps an earlier one to the nearest
+   * free spot, then lets everything settle. Used on boards saved before blocks could
+   * no longer overlap. Returns how many blocks were moved out of the way.
+   */
+  function separate(pieces, bounds) {
+    let n = 0;
+    for (let i = 1; i < pieces.length; i++) {
+      const p = pieces[i], placed = pieces.slice(0, i);
+      if (!overlapsAny(p, placed)) continue;
+      const spot = findFreeSpot(p, placed, bounds);
+      if (spot) { p.x = spot.x; p.y = spot.y; n++; }
+    }
+    return n;
   }
 
   // ------------------------------------------------------------- hit testing
@@ -522,10 +699,10 @@
   }
 
   return {
-    EPS, SNAP_THRESHOLD, CONTACT_EPS, SHAPES, SHAPE_ORDER, COLORS, COLOR_HEX, PACKS, CHALLENGES, needFromLayout, complexity, tierOf,
+    EPS, SNAP_THRESHOLD, CONTACT_EPS, OVERLAP_TOL, SHAPES, SHAPE_ORDER, COLORS, COLOR_HEX, PACKS, CHALLENGES, needFromLayout, complexity, tierOf,
     targetSlots,
     rotate, toWorld, worldPolygon, worldSnapPoints, pieceBounds, polygonArea,
-    snapPiece, hitTest, pointInPolygon, touching, components, countShapes, challengeProgress,
+    snapPiece, overlaps, overlapsAny, findFreeSpot, dropDistance, settle, separate, hitTest, pointInPolygon, touching, components, countShapes, challengeProgress,
     POINTS_PER_PIECE, FIRST_TIME_BONUS, PACK_BONUS, challengeScore, nextChallenge,
     maxFirstTimeScore, GIFTS, milestonesReached, nextMilestone,
   };

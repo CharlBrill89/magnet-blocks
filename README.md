@@ -18,13 +18,15 @@ build and new looks for the blocks.
 | --- | --- |
 | Drag a shape out of the bottom tray | A new block (there's no limit) follows your finger |
 | Drop it near another block | It snaps into place with a *click* and a glow 🧲 |
+| Let go of a block in the air | It falls until it lands on the grass or on a block, then snaps there. Blocks held on by a magnet (hanging off the side of a tower, say) stay put |
+| Drop a block onto another one | Blocks never overlap: it moves to the nearest free spot (on top, if that's as near) |
 | Tap a block | It is selected, ready for a new colour |
 | Tap the selected block again | It turns 90° |
 | Tap the round ↺ button beside the selected block | It turns 90° again |
 | Tap a color | It recolors the selected block and colors new blocks |
-| Drag a block onto the 🗑️ bin (it appears top-right while you drag) | It's deleted; tap the bin straight away to get it back |
+| Drag a block onto the 🗑️ bin (it appears top-right while you drag) | It's deleted; tap the bin straight away to get it back where it was. Anything it was holding up falls |
 | Drop a block over the tray | It stays on the board |
-| Tap a shape in the tray | A block drops into the middle of the play area |
+| Tap a shape in the tray | A block drops into the middle of the play area. Tap again and the next one lands on top or beside it |
 | Press and hold 🧹 | A ring fills around it, then everything is cleared. A quick tap does nothing. For a few seconds 🧹 turns into ↩️: tap it to get everything back |
 | ❓ | Shows the welcome again: what challenges and free build are, and which packs there are (🎄 Christmas and 🚗 Vehicles are coming soon). **🏆 Prizes, backgrounds & points** opens the prizes shelf, and grown-ups will find **Reset progress…** at the bottom |
 | 🎯 / 🎨 | Challenges / free build. The first visit opens on a welcome with a blank board; after that the game starts in challenges. 🎯 opens a grid where you choose a theme (🧸 Toy Box or 🎃 Halloween) and what to build. Tap the big emoji on the card to choose again; finished builds get a ✅ |
@@ -182,8 +184,20 @@ the ground, so builds fit in portrait and landscape.
 one unit apart along the 2-wide edges). While you drag, the nearest pair of points
 between the dragged piece and any other piece is found. If that pair is within 0.3
 units, the piece moves so the two points meet. A snap that would push the piece below
-the ground is skipped. In that case the piece rests on the ground and can still slide
-sideways to meet a neighbour. Two pieces are *connected* when they share a point.
+the ground, or into another block, is skipped. In that case the piece rests on the ground
+and can still slide sideways to meet a neighbour. Two pieces are *connected* when they share a point.
+
+**No overlaps:** two blocks overlap when one digs more than 0.01 units into the other
+(`overlaps()`, which tests points along each edge and on a grid inside). A block let go
+inside another goes to the nearest free spot (`findFreeSpot()`, trying upwards first), then
+snaps. A free build saved before this was added is pulled apart on load (`separate()`).
+
+**Gravity with magnets:** after every drop, tray tap, turn and delete, `settle()` makes blocks
+joined by their magnets act as one group. A group that isn't resting on the ground or on
+another block falls straight down until it lands, then snaps to what it landed on.
+A block hanging off the side by a magnet stays up, so every build stands as it is (the unit
+tests check all of them). Positions change at once, and the blocks are drawn falling into
+place, or not at all with reduced motion.
 
 ## Tests
 
@@ -198,7 +212,8 @@ tap to select then tap again to rotate, the ↺ rotate button, choosing a build 
 the rocket challenge in the right colours (including fixing a wrong-coloured piece),
 the outline (pieces aren't pulled into it), the score for a finished build and that it
 survives a reload, ➡️ going to the next build on the path, the 🎃 theme and its pack bonus,
-the free build surviving a challenge and a reload, and the landscape layout: every build's outline fits below the card at 375×667, 667×375 and 568×320, and the Tower is finished by dragging at 568×320.
+the free build surviving a challenge and a reload, no overlaps on a phone (tapping a tray shape again and again
+stacks the blocks where you can see them, nothing is left floating, and dragging one block by touch moves only that block), and the landscape layout: every build's outline fits below the card at 375×667, 667×375 and 568×320, and the Tower is finished by dragging at 568×320.
 It also checks the 🎁 gifts at 375×667, each in a fresh browser profile. These checks cover:
 - the first win's single gift, shown only after the count-up
 - two gifts from one win, shown in turn
@@ -222,4 +237,4 @@ It fails on any page error.
 - **Group drag:** drag a whole snapped stack at once.
 - **3D-looking blocks:** give the pieces thickness and lighting, while building stays in the flat plane.
 - **Save and share builds:** for example as a URL hash or a picture.
-- **Gentle physics:** unsupported blocks wobble or slide down softly, never in a frustrating way.
+- **Gentle physics:** loose blocks already fall straight down (#37). Next: blocks sliding off a slope, or wobbling softly, never in a frustrating way.
